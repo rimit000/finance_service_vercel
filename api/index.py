@@ -2183,34 +2183,33 @@ def guide_moa():
 
 # 디버깅용 라우트 추가
 @app.route('/debug')
-def debug_logo_match():
+def debug_image_files():
+    import os
     try:
-        # 실제 데이터의 은행명 몇 개 가져오기
-        sample_banks = set()
+        # static 폴더 구조 확인
+        static_path = os.path.join(os.path.dirname(__file__), 'static')
+        bank_logos_path = os.path.join(static_path, 'bank_logos')
         
-        for row in deposit_tier1.data[:10]:  # 처음 10개만
-            if row.get('금융회사명'):
-                sample_banks.add(row['금융회사명'])
+        static_exists = os.path.exists(static_path)
+        bank_logos_exists = os.path.exists(bank_logos_path)
         
-        for row in savings_tier1.data[:10]:  # 처음 10개만
-            if row.get('금융회사명'):
-                sample_banks.add(row['금융회사명'])
+        # 이미지 파일들 목록
+        image_files = []
+        if bank_logos_exists:
+            image_files = [f for f in os.listdir(bank_logos_path) if f.endswith(('.png', '.jpg', '.jpeg'))]
         
-        sample_banks = list(sample_banks)[:10]
-        
-        # 각 은행명에 대해 로고 매핑 결과 확인
-        matching_results = {}
-        for bank in sample_banks:
-            matching_results[bank] = {
-                'found_exact': bank in bank_logo_map,
-                'logo_result': logo_filename(bank),
-                'possible_matches': [k for k in bank_logo_map.keys() if bank in k or k in bank]
-            }
+        # 특정 파일 존재 확인
+        test_file_exists = os.path.exists(os.path.join(bank_logos_path, 'bnk-kyongnam.png'))
         
         return jsonify({
-            'sample_actual_banks': sample_banks,
-            'logo_map_keys_sample': list(bank_logo_map.keys())[:10],
-            'matching_results': matching_results
+            'static_path': static_path,
+            'bank_logos_path': bank_logos_path,
+            'static_exists': static_exists,
+            'bank_logos_exists': bank_logos_exists,
+            'image_files_count': len(image_files),
+            'image_files_sample': image_files[:10],
+            'test_file_exists': test_file_exists,
+            'app_static_folder': app.static_folder
         })
     except Exception as e:
         return jsonify({'error': str(e)})
