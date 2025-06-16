@@ -1664,6 +1664,3 @@ def roadmap():
 @app.route('/guide')
 def guide_moa():
     return redirect('/plus/calculator')
-
-if __name__ == '__main__':
-    app.run(debug=True)
