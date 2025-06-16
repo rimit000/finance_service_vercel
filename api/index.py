@@ -2169,30 +2169,47 @@ def guide_moa():
 
 # 디버깅용 라우트 추가
 @app.route('/debug')
-def debug_logo():
+def debug_actual_banks():
     try:
+        # 실제 데이터에서 사용되는 은행명들 확인
+        actual_banks = set()
+        
+        # 예금 데이터의 은행명들
+        for row in deposit_tier1.data:
+            if row.get('금융회사명'):
+                actual_banks.add(row['금융회사명'])
+        
+        for row in deposit_tier2.data:
+            if row.get('금융회사명'):
+                actual_banks.add(row['금융회사명'])
+                
+        # 적금 데이터의 은행명들
+        for row in savings_tier1.data:
+            if row.get('금융회사명'):
+                actual_banks.add(row['금융회사명'])
+                
+        for row in savings_tier2.data:
+            if row.get('금융회사명'):
+                actual_banks.add(row['금융회사명'])
+        
+        actual_banks_list = sorted(list(actual_banks))
+        
+        # 로고 매핑에 있는 은행명들
+        logo_banks = sorted(list(bank_logo_map.keys()))
+        
+        # 매칭되지 않는 은행명들 찾기
+        missing_logos = [bank for bank in actual_banks_list if bank not in bank_logo_map]
+        
         return jsonify({
-            'bank_logo_map_size': len(bank_logo_map),
-            'bank_logo_map_empty': len(bank_logo_map) == 0,
-            'bank_logo_map_sample': dict(list(bank_logo_map.items())[:10]) if bank_logo_map else {},
-            'logo_df_empty': logo_df.empty,
-            'logo_df_columns': logo_df.columns if hasattr(logo_df, 'columns') else [],
-            'logo_df_data_count': len(logo_df.data) if hasattr(logo_df, 'data') else 0,
-            'logo_df_sample': logo_df.data[:3] if hasattr(logo_df, 'data') and logo_df.data else []
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-@app.route('/debug-bank/<bank_name>')
-def debug_bank_logo(bank_name):
-    try:
-        return jsonify({
-            'input_bank_name': bank_name,
-            'found_in_map': bank_name in bank_logo_map,
-            'logo_filename_result': logo_filename(bank_name),
-            'map_keys_sample': list(bank_logo_map.keys())[:10] if bank_logo_map else [],
-            'total_keys': len(bank_logo_map),
-            'similar_keys': [k for k in bank_logo_map.keys() if bank_name in k or k in bank_name] if bank_logo_map else []
+            'actual_banks_count': len(actual_banks_list),
+            'actual_banks_sample': actual_banks_list[:10],
+            'logo_banks_sample': logo_banks[:10],
+            'missing_logos_count': len(missing_logos),
+            'missing_logos': missing_logos[:10],
+            'sample_matches': {
+                bank: bank in bank_logo_map 
+                for bank in actual_banks_list[:5]
+            }
         })
     except Exception as e:
         return jsonify({'error': str(e)})
