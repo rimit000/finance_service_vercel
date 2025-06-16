@@ -294,7 +294,12 @@ pd = PandasReplacement()
 # ============================================
 # 1. 공통 유틸 – 은행 로고 경로 -----------------------------------
 # ============================================
-LOGO_DIR = "bank_logos"          # static/bank_logos/ 하위 폴더명
+
+# static 폴더 경로를 명시적으로 지정
+static_folder = os.path.join(os.path.dirname(__file__), 'static')
+app = Flask(__name__, static_folder=static_folder)
+
+LOGO_DIR = "bank_logos"
 
 def _slug(bank_name: str) -> str:
     """공백‧괄호 제거 → 파일명 슬러그"""
@@ -302,7 +307,8 @@ def _slug(bank_name: str) -> str:
 
 def logo_filename(bank_name):
     filename = bank_logo_map.get(bank_name)
-    return f"bank_logos/{filename}" if filename else "bank_logos/default.png"
+    # static/ 경로를 명시적으로 포함
+    return f"static/bank_logos/{filename}" if filename else "static/bank_logos/default.png"
 
 # ✔ 예금/적금 데이터 로드
 try:
