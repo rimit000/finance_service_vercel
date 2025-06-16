@@ -2159,3 +2159,34 @@ def roadmap():
 @app.route('/guide')
 def guide_moa():
     return redirect('/plus/calculator')
+
+
+# 디버깅용 라우트 추가
+@app.route('/debug')
+def debug_files():
+    import os
+    try:
+        current_dir = os.getcwd()
+        files = os.listdir('.')
+        csv_files = [f for f in files if f.endswith('.csv')]
+        
+        # 각 CSV 파일 존재 여부 확인
+        file_status = {}
+        required_files = [
+            '예금_1금융권_포함.csv',
+            '예금_2금융권.csv', 
+            '적금_1금융권_포함.csv',
+            '적금_2금융권.csv'
+        ]
+        
+        for filename in required_files:
+            file_status[filename] = os.path.exists(filename)
+        
+        return jsonify({
+            'current_directory': current_dir,
+            'all_files': files,
+            'csv_files': csv_files,
+            'required_files_status': file_status
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
