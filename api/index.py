@@ -694,7 +694,7 @@ def api_loans():
 
 # 금융용어사전 로드 및 초성 기준
 try:
-    terms_df = pd.read_excel('통계용어사전.xlsx')
+    terms_df = pd.read_excel('통계용어사전.csv')
     print("✅ 금융용어사전 로드 성공")
 except Exception as e:
     print(f"❌ 금융용어사전 로드 실패: {e}")
