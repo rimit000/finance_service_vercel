@@ -2184,15 +2184,32 @@ def guide_moa():
 
 # 디버깅용 라우트 추가
 @app.route('/debug')
-def debug_logo_mapping():
+def debug_columns_processing():
     try:
+        # 샘플 데이터 몇 개만 확인
+        sample_data = []
+        
+        # savings_tier2에서 웰컴저축은행 데이터 찾기
+        for i, row in enumerate(savings_tier2.data[:10]):  # 처음 10개만
+            bank_name = row.get('금융회사명', '')
+            logo_before = row.get('logo', 'NOT_SET')
+            
+            # logo_filename 함수 직접 테스트
+            logo_direct = logo_filename(bank_name)
+            
+            sample_data.append({
+                'index': i,
+                'bank_name': bank_name,
+                'logo_in_data': logo_before,
+                'logo_direct_call': logo_direct,
+                'has_logo_column': 'logo' in row
+            })
+        
         return jsonify({
-            'bank_logo_map_size': len(bank_logo_map),
-            'has_welcome_bank': '웰컴저축은행' in bank_logo_map,
-            'welcome_logo_value': bank_logo_map.get('웰컴저축은행', 'NOT_FOUND'),
-            'logo_df_loaded': not logo_df.empty,
-            'logo_df_sample': logo_df.data[:5] if hasattr(logo_df, 'data') else 'NO_DATA_ATTR',
-            'sample_mapping': dict(list(bank_logo_map.items())[:10])
+            'sample_data': sample_data,
+            'savings_tier2_total': len(savings_tier2.data),
+            'savings_tier2_empty': savings_tier2.empty,
+            'logo_function_test': logo_filename('웰컴저축은행')
         })
     except Exception as e:
-        return jsonify({'error': str(e), 'bank_logo_map_type': type(bank_logo_map)})
+        return jsonify({'error': str(e)})
