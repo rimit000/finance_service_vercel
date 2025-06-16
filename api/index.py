@@ -316,6 +316,20 @@ try:
     deposit_tier2 = pd.read_csv('예금_2금융권.csv')
     savings_tier1 = pd.read_csv('적금_1금융권_포함.csv')
     savings_tier2 = pd.read_csv('적금_2금융권.csv')
+    
+    # BOM 문자 제거 함수
+    def clean_columns(df):
+        if not df.empty:
+            for row in df.data:
+                if '\ufeff금융회사명' in row:
+                    row['금융회사명'] = row.pop('\ufeff금융회사명')
+    
+    # 각 데이터프레임의 컬럼명 정리
+    clean_columns(deposit_tier1)
+    clean_columns(deposit_tier2)
+    clean_columns(savings_tier1)
+    clean_columns(savings_tier2)
+    
     print("✅ CSV 파일 로드 성공")
 except Exception as e:
     print(f"❌ CSV 파일 로드 실패: {e}")
