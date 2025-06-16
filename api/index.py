@@ -308,9 +308,9 @@ def _slug(bank_name: str) -> str:
 def logo_filename(bank_name):
     filename = bank_logo_map.get(bank_name)
     if filename:
-        return f"/static/bank_logos/{filename}"  # 절대 경로로 변경
+        return f"static/bank_logos/{filename}"  # 절대 경로로 변경
     return "/static/bank_logos/default.png"
-    
+
 # ✔ 예금/적금 데이터 로드
 try:
     deposit_tier1 = pd.read_csv('예금_1금융권_포함.csv')
