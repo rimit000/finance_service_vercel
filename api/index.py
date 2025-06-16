@@ -832,9 +832,12 @@ def api_deposits():
 
         data = pd.concat([deposit_tier1, deposit_tier2], ignore_index=True)
         filtered = filter_products(data, period, bank, region)
-
-        # 중복 제거: 상품명 + 금융회사명 기준
         filtered = filtered.drop_duplicates(subset=['상품명', '금융회사명'])
+
+        # 🔧 로고 강제 재설정
+        for row in filtered.data:
+            bank_name = row.get('금융회사명', '')
+            row['logo'] = logo_filename(bank_name)
 
         products = filtered.sort_values(by='최고우대금리(%)', ascending=False).to_dict('records')
         return jsonify({'products': products, 'total': len(products)})
