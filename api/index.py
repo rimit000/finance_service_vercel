@@ -921,22 +921,15 @@ def api_savings():
         bank = request.args.get('bank')
         region = request.args.get('region')
 
-        print("적금 요청 - 기간:", period, "| 은행:", bank, "| 지역:", region)
-
         data = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
-        print("전체 적금 상품 수:", len(data.data))
-
         filtered = filter_products(data, period, bank, region)
-        print("필터 후 적금 수:", len(filtered.data))
-
         filtered = filtered.drop_duplicates(subset=['상품명', '금융회사명'])
         filtered = filtered.fillna("정보 없음")
 
-        # 🔧 여기서 강제로 로고 설정
+        # 🔧 로고 강제 재설정
         for row in filtered.data:
             bank_name = row.get('금융회사명', '')
-            row['logo'] = logo_filename(bank_name)
-            print(f"API에서 로고 설정: {bank_name} -> {row['logo']}")  # 디버깅
+            row['logo'] = logo_filename(bank_name)  # 정상 작동하는 함수로 재설정
 
         products = filtered.sort_values(by='최고우대금리(%)', ascending=False).to_dict('records')
         return jsonify({'products': products, 'total': len(products)})
