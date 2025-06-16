@@ -930,9 +930,13 @@ def api_savings():
         print("필터 후 적금 수:", len(filtered.data))
 
         filtered = filtered.drop_duplicates(subset=['상품명', '금융회사명'])
-
-        # NaN 처리 필수!
         filtered = filtered.fillna("정보 없음")
+
+        # 🔧 여기서 강제로 로고 설정
+        for row in filtered.data:
+            bank_name = row.get('금융회사명', '')
+            row['logo'] = logo_filename(bank_name)
+            print(f"API에서 로고 설정: {bank_name} -> {row['logo']}")  # 디버깅
 
         products = filtered.sort_values(by='최고우대금리(%)', ascending=False).to_dict('records')
         return jsonify({'products': products, 'total': len(products)})
