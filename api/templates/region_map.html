@@ -1,0 +1,699 @@
+{% extends 'base.html' %}
+{% block title %}HOUSE MOA{% endblock %}
+
+{% block content %}
+<!-- 브레드크럼 -->
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">홈</a></li>
+    <li class="breadcrumb-item"><a href="/plus">MOA PLUS</a></li>
+    <li class="breadcrumb-item"><a href="/plus/region">당신의 미래를 모으는 시간</a></li>
+    <li class="breadcrumb-item active" aria-current="page">HOUSE MOA</li>
+  </ol>
+</nav>
+<style>
+  :root {
+    --moa-green: #00C4A8;
+    --moa-light: #8AE2BB;
+    --moa-dark: #020715;
+    --primary-color: #00B37D;
+    --light-bg: #E8F9F5;
+    --accent-color: #4ECDC4;
+    --gray-light: #F8F9FA;
+    --gray-medium: #E9ECEF;
+    --gray-dark: #6C757D;
+    --loan-accent: #FF6B35;
+    --loan-light: #FFE5DC;
+  }
+
+  /* 타이틀 - 기존 유지 */
+  .moa-header {
+    transform: translateY(-1cm);
+    background: white;
+    padding: 80px 20px 20px;
+    text-align: center;
+    font-family: 'NoonnuBasicGothic', sans-serif;
+  }
+  .moa-header .moa-bar {
+    width: 53px;
+    height: 10px;
+    background-color:#8AE4D7;
+    margin: 0 auto 30px;
+  }
+  .moa-header h1 {
+    font-size: 4rem;
+    font-weight: 700;
+    color: var(--moa-green);
+    letter-spacing: 1.5px;
+  }
+  .moa-header h1 .black-text {
+    color: #333333;
+  }
+  .moa-header h1 .green-text {
+    color: var(--moa-green);
+  }
+  .moa-header p {
+    font-size: 1.5rem;
+    color: #717171;
+    margin-top: 10px;
+    letter-spacing: 1.1px;
+  }
+
+  /* 메인 바디 스타일 */
+  body {
+    background-color: #ffffff;
+    padding: 40px 20px;
+    font-family: 'NoonnuBasicGothic', sans-serif;
+  }
+
+  /* 메인 레이아웃 */
+  .row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 40px;
+    justify-content: center;
+    max-width: 1600px;
+    margin: 0 auto;
+    align-items: flex-start;
+  }
+
+  /* 지도 섹션 - 안정적인 디자인 */
+  .col-lg-8 {
+    flex: 0 0 55%;
+    max-width: 55%;
+  }
+
+  #mapdiv {
+    width: 100%;
+    background: #E8F4FD;
+    padding: 80px;
+    border-radius: 20px;
+    border: none;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    position: relative;
+  }
+
+  svg {
+    max-width: 800px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+  }
+
+  svg path {
+    stroke: #DEE2E6 !important;
+    stroke-width: 1;
+    fill: #F8F8F8;
+    transition: fill 0.3s ease;
+    cursor: pointer;
+    pointer-events: all;
+  }
+
+  svg path:hover {
+    fill: #DEE2E6 !important;
+  }
+
+  .region-label {
+    font-family: 'NoonnuBasicGothic', sans-serif;
+    font-size: 13px;
+    font-weight: bold;
+    pointer-events: none;
+    fill: #333;
+  }
+
+  /* 우측 정보 패널 - 현대적인 카드 스타일 */
+  .col-lg-4 {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 16px;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    flex: 0 0 40%;
+    max-width: 40%;
+  }
+
+  /* 선택된 지역 정보 */
+  #selected-region {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 12px;
+  }
+
+  #avg-price {
+    font-size: 1.1rem;
+    color: #333;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #E5E7EB;
+  }
+
+  /* 상환 개월수 선택 */
+  .repayment-selector {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #E5E7EB;
+  }
+
+  .repayment-selector label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .repayment-selector select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #333;
+    background-color: #ffffff;
+    transition: border-color 0.3s ease;
+    cursor: pointer;
+  }
+
+  .repayment-selector select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 179, 125, 0.1);
+  }
+
+  .repayment-selector select:hover {
+    border-color: var(--accent-color);
+  }
+
+  /* 대출상품 제목 */
+  .loan-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20px;
+  }
+
+  /* 대출상품 리스트 */
+  #loan-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  #loan-list .list-group-item {
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 20px;
+    background-color: #ffffff;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #loan-list .list-group-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 6px 20px rgba(0, 179, 125, 0.15);
+    transform: translateY(-2px);
+  }
+
+  #loan-list .list-group-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--primary-color);
+  }
+
+  /* 정부지원 대출 특별 스타일 */
+  #loan-list .government-loan {
+    background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+    border-color: #0EA5E9;
+    border-width: 2px;
+  }
+
+  #loan-list .government-loan::before {
+    background: linear-gradient(180deg, #0EA5E9, #0284C7);
+  }
+
+  #loan-list .government-loan:hover {
+    border-color: #0284C7;
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.2);
+  }
+
+  /* 상품명 스타일 */
+  .product-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+
+  .product-rate {
+    color: var(--primary-color);
+    font-weight: 700;
+  }
+
+  .government-loan .product-rate {
+    color: #0EA5E9;
+  }
+
+  .product-company {
+    color: #333333;
+    font-weight: 500;
+  }
+
+  .government-badge {
+    background: none;
+    color: #0EA5E9;
+    font-size: 1.2rem;
+    font-weight: 400;
+    padding: 0;
+    border-radius: 0;
+    margin-left: 8px;
+  }
+
+  .government-badge::before {
+    content: "🏛️";
+    font-size: 1.2rem;
+  }
+
+  /* 상품 상세 정보 */
+  .product-details {
+    font-size: 0.9rem;
+    color: var(--gray-dark);
+    line-height: 1.5;
+  }
+
+  .highlight {
+    color: #333;
+    font-weight: 600;
+  }
+
+  .loan-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding: 8px 0;
+  }
+
+  .loan-amount {
+    color: #333333;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .monthly-payment {
+    color: #fff;
+    background: var(--primary-color);
+    font-weight: 500;
+    font-size: 1.1rem;
+    padding: 6px 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 179, 125, 0.2);
+  }
+
+  .government-loan .monthly-payment {
+    background: #0EA5E9;
+    box-shadow: 0 2px 4px rgba(14, 165, 233, 0.2);
+  }
+
+  /* 안내 정보 섹션 */
+  .info-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #E5E7EB;
+  }
+
+  .info-notice {
+    background: #F8F9FA;
+    border: 1px solid #E9ECEF;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+  }
+
+  .info-notice h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+  }
+
+  .info-notice ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .info-notice ul li {
+    font-size: 0.85rem;
+    color: #6C757D;
+    line-height: 1.5;
+    margin-bottom: 6px;
+    position: relative;
+    padding-left: 12px;
+  }
+
+  .info-notice ul li::before {
+    content: "•";
+    color: var(--primary-color);
+    font-weight: bold;
+    position: absolute;
+    left: 0;
+  }
+
+  .info-date {
+    text-align: right;
+  }
+
+  .info-date p {
+    font-size: 0.8rem;
+    color: #6C757D;
+    margin: 0;
+    font-style: italic;
+  }
+
+  /* 브레드크럼 스타일 */
+  .breadcrumb {
+    background: none;
+    padding: 20px 0;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    text-align: right;
+    justify-content: flex-end;
+  }
+
+  .breadcrumb-item {
+    color: #6C757D;
+  }
+
+  .breadcrumb-item + .breadcrumb-item::before {
+    content: ">";
+    color: #6C757D;
+    margin: 0 8px;
+  }
+
+  .breadcrumb-item a {
+    color: #6C757D;
+    text-decoration: none;
+  }
+
+  .breadcrumb-item a:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+  }
+
+  .breadcrumb-item.active {
+    color: #333;
+    font-weight: 600;
+  }
+
+  /* 툴팁 */
+  .region-tooltip {
+    position: absolute;
+    background: #333;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: none;
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  /* 반응형 디자인 */
+  @media (max-width: 1200px) {
+    .row {
+      flex-wrap: wrap;
+    }
+    
+    .col-lg-8, .col-lg-4 {
+      flex: none;
+      max-width: 100%;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .row {
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .col-lg-8, .col-lg-4 {
+      width: 100%;
+      max-width: 100%;
+      min-width: auto;
+    }
+
+    #mapdiv {
+      padding: 30px 20px;
+    }
+
+    #selected-region {
+      font-size: 1.2rem;
+    }
+
+    #avg-price {
+      font-size: 1rem;
+    }
+
+    .moa-header h1 {
+      font-size: 3rem;
+    }
+
+    .moa-header p {
+      font-size: 1.2rem;
+    }
+
+    .loan-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .monthly-payment {
+      align-self: flex-end;
+    }
+  }
+</style>
+
+<!-- 타이틀 - 기존 유지 -->
+<div class="moa-header">
+  <div class="moa-bar"></div>
+  <h1><span class="black-text">HOUSE</span> <span class="green-text">MOA</span></h1>
+  <p>집 살돈, 여기서 모아봐 !</p>
+</div>
+
+<!-- 메인 콘텐츠 -->
+<div class="row">
+  <div class="col-lg-8">
+    <div id="mapdiv">
+      {% include '전국_시도_전세지도_인터랙티브.html' %}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <h3 id="selected-region">지역을 선택해주세요</h3>
+    <p id="avg-price">평균 주택 전세가: -</p>
+    
+    <div class="repayment-selector">
+      <label for="repayment-months">상환 기간</label>
+      <select id="repayment-months">
+        <option value="24">2년 (24개월)</option>
+        <option value="36">3년 (36개월)</option>
+        <option value="48">4년 (48개월)</option>
+        <option value="60">5년 (60개월)</option>
+        <option value="120">10년 (120개월)</option>
+      </select>
+    </div>
+    
+    <h4 class="loan-title">추천 주택대출상품</h4>
+    <ul id="loan-list" class="list-group"></ul>
+    
+    <!-- 안내 정보 -->
+    <div class="info-section">
+      <div class="info-notice">
+        <h5>유의사항</h5>
+        <ul>
+          <li>상기 금리는 2025년 6월 12일 기준이며, 시장 상황에 따라 변동될 수 있습니다.</li>
+          <li>실제 적용 금리는 고객의 신용등급, 소득수준, 담보가치 등에 따라 차등 적용됩니다.</li>
+          <li>월 상환금액은 원리금균등상환 기준 예상 금액으로, 실제와 다를 수 있습니다.</li>
+          <li>대출 승인 및 한도는 당행 내부 심사기준에 따라 결정되며, 신청 시 구비서류가 필요합니다.</li>
+          <li>중도상환 시 중도상환수수료가 발생할 수 있으니, 약정서를 반드시 확인하시기 바랍니다.</li>
+          <li>대출 관련 상세 조건은 각 금융기관 영업점에 문의하시거나 홈페이지를 참고하시기 바랍니다.</li>
+        </ul>
+      </div>
+      <div class="info-date">
+        <p><strong>정보기준일:</strong> 2025년 6월 12일</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="region-tooltip" id="tooltip"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const paths = document.querySelectorAll('svg path, polyline');
+  const tooltip = document.getElementById('tooltip');
+  const repaymentSelect = document.getElementById('repayment-months');
+  let selectedPath = null;
+  let currentRegionData = null;
+
+  // 상환 기간 변경 시 월상환금 재계산
+  repaymentSelect.addEventListener('change', function() {
+    if (currentRegionData) {
+      updateLoanProducts(currentRegionData, parseInt(this.value));
+    }
+  });
+
+  // 월상환금 계산 함수
+  function calculateMonthlyPayment(loanAmount, annualRate, months) {
+    if (!loanAmount || loanAmount === '제한없음' || annualRate <= 0) {
+      return '계산불가';
+    }
+    
+    const monthlyRate = annualRate / 100 / 12;
+    const totalAmount = loanAmount * 10000; // 만원을 원으로 변환
+    
+    if (monthlyRate === 0) {
+      return Math.round(totalAmount / months / 10000); // 무이자인 경우
+    }
+    
+    // 원리금균등상환 공식
+    const monthlyPayment = totalAmount * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+    return Math.round(monthlyPayment / 10000); // 만원 단위로 반환
+  }
+
+  // 대출 상품 목록 업데이트 함수
+  function updateLoanProducts(data, repaymentMonths) {
+    const list = document.getElementById('loan-list');
+    list.innerHTML = '';
+
+    const seen = new Set();
+    data.products.slice(0, 6).forEach(p => {
+      const key = `${p.상품명}-${p.금융회사명}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const li = document.createElement('li');
+      li.className = 'list-group-item';
+      
+      if (p.상품타입 === '정부지원') {
+        li.classList.add('government-loan');
+      }
+
+      // 대출한도 포맷팅
+      let loanLimitText;
+      if (p['대출한도(만원)'] === '제한없음') {
+        loanLimitText = '제한없음';
+      } else {
+        const limit = p['대출한도(만원)'];
+        if (limit >= 10000) {
+          const eok = Math.floor(limit / 10000);
+          const man = limit % 10000;
+          loanLimitText = man === 0 ? `${eok}억원` : `${eok}억 ${man.toLocaleString()}만원`;
+        } else {
+          loanLimitText = `${limit.toLocaleString()}만원`;
+        }
+      }
+
+      // 최소 금리 추출 (예: "2.88~9.70%" → 2.88)
+      const minRate = parseFloat(p.금리.replace('%', '').split('~')[0]);
+      
+      // 새로운 월상환금 계산
+      const monthlyPayment = calculateMonthlyPayment(p['대출한도(만원)'], minRate, repaymentMonths);
+      const monthlyPaymentText = monthlyPayment !== '계산불가' ? `월 상환금액: ${monthlyPayment.toLocaleString()}만원` : '';
+
+      li.innerHTML = `
+        <div class="product-name">
+          <strong>${p.상품명}</strong>
+          ${p.상품타입 === '정부지원' ? '<span class="government-badge"></span>' : ''}
+          <br>
+          <span class="product-rate">${p.금리}</span> - 
+          <span class="product-company">${p.금융회사명}</span>
+        </div>
+        <div class="product-details">
+          <div class="loan-info">
+            <span class="loan-amount">한도: ${loanLimitText}</span>
+            ${monthlyPaymentText ? `<span class="monthly-payment">${monthlyPaymentText}</span>` : ''}
+          </div>
+        </div>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  paths.forEach(path => {
+    const title = path.getAttribute('id');
+    if (!title) return;
+
+    path.style.cursor = 'pointer';
+
+    path.addEventListener('mousemove', function (e) {
+      tooltip.innerText = title;
+      tooltip.style.left = (e.pageX + 10) + 'px';
+      tooltip.style.top = (e.pageY + 10) + 'px';
+      tooltip.style.display = 'block';
+    });
+
+    path.addEventListener('mouseleave', function () {
+      tooltip.style.display = 'none';
+    });
+
+    path.addEventListener('click', function () {
+      if (selectedPath) {
+        selectedPath.style.fill = '#F8F8F8';
+      }
+
+      path.style.fill = '#D1D5DB';
+      selectedPath = path;
+
+      const region = title.replace(" 원", "").trim();
+      document.getElementById('selected-region').innerText = '지역: ' + region;
+
+      fetch(`/plus/region-data?region=${region}`)
+        .then(res => res.json())
+        .then(data => {
+          currentRegionData = data; // 데이터 저장
+          
+          // 가격 표시 (가독성 높게)
+          if (data.price && data.price !== '정보없음') {
+            const price = typeof data.price === 'number' ? data.price : parseFloat(data.price);
+            
+            let formattedPrice;
+            if (price >= 10000) {
+              // 1억 이상: 3억 713만원
+              const eok = Math.floor(price / 10000);
+              const man = price % 10000;
+              if (man === 0) {
+                formattedPrice = `${eok}억원`;
+              } else {
+                formattedPrice = `${eok}억 ${man.toLocaleString()}만원`;
+              }
+            } else {
+              // 1억 미만: 3,071만원
+              formattedPrice = `${price.toLocaleString()}만원`;
+            }
+            document.getElementById('avg-price').innerText = '평균 전세가: ' + formattedPrice;
+          } else {
+            document.getElementById('avg-price').innerText = '평균 전세가: 정보없음';
+          }
+
+          // 현재 선택된 상환 기간으로 상품 목록 업데이트
+          const selectedMonths = parseInt(repaymentSelect.value);
+          updateLoanProducts(data, selectedMonths);
+        })
+        .catch(error => {
+          console.error('Error fetching region data:', error);
+        });
+    });
+  });
+});
+</script>
+{% endblock %}
