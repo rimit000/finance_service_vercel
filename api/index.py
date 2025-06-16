@@ -2170,10 +2170,29 @@ def guide_moa():
 # 디버깅용 라우트 추가
 @app.route('/debug')
 def debug_logo():
-    return jsonify({
-        'bank_logo_map_size': len(bank_logo_map),
-        'bank_logo_map_sample': dict(list(bank_logo_map.items())[:5]),  # 처음 5개만
-        'logo_df_loaded': not logo_df.empty,
-        'logo_df_columns': logo_df.columns if not logo_df.empty else [],
-        'logo_df_sample': logo_df.data[:3] if not logo_df.empty else []
-    })
+    try:
+        return jsonify({
+            'bank_logo_map_size': len(bank_logo_map),
+            'bank_logo_map_empty': len(bank_logo_map) == 0,
+            'bank_logo_map_sample': dict(list(bank_logo_map.items())[:10]) if bank_logo_map else {},
+            'logo_df_empty': logo_df.empty,
+            'logo_df_columns': logo_df.columns if hasattr(logo_df, 'columns') else [],
+            'logo_df_data_count': len(logo_df.data) if hasattr(logo_df, 'data') else 0,
+            'logo_df_sample': logo_df.data[:3] if hasattr(logo_df, 'data') and logo_df.data else []
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/debug-bank/<bank_name>')
+def debug_bank_logo(bank_name):
+    try:
+        return jsonify({
+            'input_bank_name': bank_name,
+            'found_in_map': bank_name in bank_logo_map,
+            'logo_filename_result': logo_filename(bank_name),
+            'map_keys_sample': list(bank_logo_map.keys())[:10] if bank_logo_map else [],
+            'total_keys': len(bank_logo_map),
+            'similar_keys': [k for k in bank_logo_map.keys() if bank_name in k or k in bank_name] if bank_logo_map else []
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
