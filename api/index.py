@@ -1,12 +1,295 @@
 from flask import Flask, render_template, request, jsonify, redirect
-import pandas as pd
 import random
 import re
 from urllib.parse import unquote
 import logging
 import os
 from flask import make_response
+import csv
+import json
+from collections import defaultdict
+
 app = Flask(__name__)
+
+# ============================================
+# CSV 처리 클래스 (pandas 대체)
+# ============================================
+class DataFrameReplacement:
+    def __init__(self, filename=None, data=None):
+        self.data = []
+        self.columns = []
+        
+        if filename:
+            self._load_from_file(filename)
+        elif data:
+            self.data = data
+            if data:
+                self.columns = list(data[0].keys())
+    
+    def _load_from_file(self, filename):
+        try:
+            with open(filename, 'r', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                self.columns = reader.fieldnames or []
+                self.data = list(reader)
+        except Exception as e:
+            print(f"파일 로드 실패: {filename} - {e}")
+            self.data = []
+            self.columns = []
+    
+    @property
+    def empty(self):
+        return len(self.data) == 0
+    
+    def __getitem__(self, column):
+        if isinstance(column, str):
+            return ColumnSeries([row.get(column, '') for row in self.data])
+        elif isinstance(column, list):
+            # 여러 컬럼 선택
+            result_data = []
+            for row in self.data:
+                new_row = {col: row.get(col, '') for col in column}
+                result_data.append(new_row)
+            return DataFrameReplacement(data=result_data)
+    
+    def dropna(self, subset=None, inplace=False):
+        if subset is None:
+            subset = self.columns
+        
+        filtered_data = []
+        for row in self.data:
+            if all(row.get(col) and str(row.get(col)).strip() for col in subset):
+                filtered_data.append(row)
+        
+        if inplace:
+            self.data = filtered_data
+        else:
+            return DataFrameReplacement(data=filtered_data)
+    
+    def fillna(self, value, inplace=False):
+        filled_data = []
+        for row in self.data:
+            new_row = {}
+            for key, val in row.items():
+                new_row[key] = val if val and str(val).strip() else value
+            filled_data.append(new_row)
+        
+        if inplace:
+            self.data = filled_data
+        else:
+            return DataFrameReplacement(data=filled_data)
+    
+    def apply(self, func):
+        return [func(row) for row in self.data]
+    
+    def rename(self, columns=None, inplace=False):
+        if columns is None:
+            return self
+        
+        new_data = []
+        for row in self.data:
+            new_row = {}
+            for key, value in row.items():
+                if callable(columns):
+                    new_key = columns(key)
+                elif isinstance(columns, dict):
+                    new_key = columns.get(key, key)
+                else:
+                    new_key = key
+                new_row[new_key] = value
+            new_data.append(new_row)
+        
+        if inplace:
+            self.data = new_data
+            if new_data:
+                self.columns = list(new_data[0].keys())
+        else:
+            return DataFrameReplacement(data=new_data)
+    
+    def drop_duplicates(self, subset=None):
+        if subset is None:
+            subset = self.columns
+        
+        seen = set()
+        unique_data = []
+        for row in self.data:
+            key = tuple(row.get(col, '') for col in subset)
+            if key not in seen:
+                seen.add(key)
+                unique_data.append(row)
+        
+        return DataFrameReplacement(data=unique_data)
+    
+    def sort_values(self, by, ascending=True):
+        try:
+            def sort_key(row):
+                val = row.get(by, '')
+                try:
+                    return float(str(val).replace('%', '').replace(',', ''))
+                except:
+                    return str(val)
+            
+            sorted_data = sorted(self.data, key=sort_key, reverse=not ascending)
+            return DataFrameReplacement(data=sorted_data)
+        except:
+            return self
+    
+    def groupby(self, column):
+        groups = defaultdict(list)
+        for row in self.data:
+            key = row.get(column, '')
+            groups[key].append(row)
+        return GroupByResult(groups)
+    
+    def to_dict(self, orient='records'):
+        if orient == 'records':
+            return self.data
+        return self.data
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def iloc(self, start, end=None):
+        if end is None:
+            return self.data[start]
+        return DataFrameReplacement(data=self.data[start:end])
+
+class ColumnSeries:
+    def __init__(self, data):
+        self.data = data
+    
+    def unique(self):
+        return list(set(str(item).strip() for item in self.data if item and str(item).strip()))
+    
+    def dropna(self):
+        return ColumnSeries([item for item in self.data if item and str(item).strip()])
+    
+    def apply(self, func):
+        return ColumnSeries([func(item) for item in self.data])
+    
+    def astype(self, dtype):
+        if dtype == str:
+            return ColumnSeries([str(item) for item in self.data])
+        elif dtype == float:
+            converted = []
+            for item in self.data:
+                try:
+                    converted.append(float(str(item).replace('%', '').replace(',', '')))
+                except:
+                    converted.append(0.0)
+            return ColumnSeries(converted)
+        elif dtype == int:
+            converted = []
+            for item in self.data:
+                try:
+                    converted.append(int(float(str(item).replace('%', '').replace(',', ''))))
+                except:
+                    converted.append(0)
+            return ColumnSeries(converted)
+        return self
+    
+    def str(self):
+        return StringAccessor(self.data)
+
+class StringAccessor:
+    def __init__(self, data):
+        self.data = data
+    
+    def replace(self, old, new):
+        return ColumnSeries([str(item).replace(old, new) for item in self.data])
+    
+    def strip(self):
+        return ColumnSeries([str(item).strip() for item in self.data])
+    
+    def contains(self, substring, na=True):
+        result = []
+        for item in self.data:
+            if item is None or (not na and not item):
+                result.append(False)
+            else:
+                result.append(substring.lower() in str(item).lower())
+        return result
+
+class GroupByResult:
+    def __init__(self, groups):
+        self.groups = groups
+    
+    def apply(self, func):
+        result = {}
+        for key, group_data in self.groups.items():
+            series = ColumnSeries([row[list(row.keys())[0]] for row in group_data])
+            result[key] = func(series)
+        return result
+    
+    def mean(self):
+        result = {}
+        for key, group_data in self.groups.items():
+            if group_data:
+                # 첫 번째 숫자 컬럼 찾기
+                numeric_col = None
+                for col in group_data[0].keys():
+                    try:
+                        float(str(group_data[0][col]).replace(',', ''))
+                        numeric_col = col
+                        break
+                    except:
+                        continue
+                
+                if numeric_col:
+                    values = []
+                    for row in group_data:
+                        try:
+                            values.append(float(str(row[numeric_col]).replace(',', '')))
+                        except:
+                            pass
+                    if values:
+                        result[key] = sum(values) / len(values)
+                    else:
+                        result[key] = 0
+                else:
+                    result[key] = 0
+            else:
+                result[key] = 0
+        return result
+
+def pd_read_csv(filename):
+    return DataFrameReplacement(filename=filename)
+
+def pd_read_excel(filename):
+    # Excel 파일을 CSV로 변환했다고 가정하거나 오류 처리
+    try:
+        # openpyxl 없이는 처리 불가, 빈 DataFrame 반환
+        return DataFrameReplacement(data=[])
+    except:
+        return DataFrameReplacement(data=[])
+
+def pd_concat(dataframes, ignore_index=False):
+    all_data = []
+    for df in dataframes:
+        if hasattr(df, 'data'):
+            all_data.extend(df.data)
+        elif isinstance(df, list):
+            all_data.extend(df)
+    return DataFrameReplacement(data=all_data)
+
+def pd_DataFrame(data=None, columns=None):
+    if data is None:
+        return DataFrameReplacement(data=[])
+    return DataFrameReplacement(data=data)
+
+def isna(value):
+    return value is None or value == '' or str(value).strip() == ''
+
+# pandas 대체 클래스들을 pd 모듈처럼 사용
+class PandasReplacement:
+    def __init__(self):
+        self.DataFrame = pd_DataFrame
+        self.concat = pd_concat
+        self.read_csv = pd_read_csv
+        self.read_excel = pd_read_excel
+        self.isna = isna
+
+pd = PandasReplacement()
 
 # ============================================
 # 1. 공통 유틸 – 은행 로고 경로 -----------------------------------
@@ -96,7 +379,7 @@ region_map = {normalize_name(k): v for k, v in region_map_raw.items()}
 # 로고 매핑 딕셔너리 생성
 try:
     logo_df = pd.read_csv('logo_bank.csv')
-    bank_logo_map = dict(zip(logo_df['은행명'], logo_df['로고파일명']))
+    bank_logo_map = dict(zip(logo_df['은행명'].data, logo_df['로고파일명'].data))
     print("✅ 로고 매핑 로드 성공")
 except Exception as e:
     print(f"❌ 로고 매핑 로드 실패: {e}")
@@ -111,22 +394,26 @@ def safe_add_columns(df, df_name):
             print(f"{df_name}이 비어있습니다")
             return
             
-        print(f"{df_name} 컬럼:", df.columns.tolist())
+        print(f"{df_name} 컬럼:", df.columns)
         
         if '금융회사명' in df.columns:
-            df['정제명'] = df['금융회사명'].apply(normalize_name)
-            df['지역'] = df['정제명'].map(region_map).fillna('기타')
-            df['logo'] = df['금융회사명'].apply(logo_filename)
+            # 새 컬럼들을 각 행에 추가
+            for row in df.data:
+                row['정제명'] = normalize_name(row.get('금융회사명', ''))
+                row['지역'] = region_map.get(row['정제명'], '기타')
+                row['logo'] = logo_filename(row.get('금융회사명', ''))
             print(f"{df_name} 컬럼 추가 완료")
         else:
             print(f"{df_name}에 금융회사명 컬럼이 없습니다")
-            df['지역'] = '기타'
-            df['logo'] = 'default.png'
+            for row in df.data:
+                row['지역'] = '기타'
+                row['logo'] = 'default.png'
     except Exception as e:
         print(f"{df_name} 처리 중 오류: {e}")
         if not df.empty:
-            df['지역'] = '기타'
-            df['logo'] = 'default.png'
+            for row in df.data:
+                row['지역'] = '기타'
+                row['logo'] = 'default.png'
 
 # 각 데이터프레임에 안전하게 컬럼 추가
 safe_add_columns(deposit_tier1, "deposit_tier1")
@@ -138,18 +425,28 @@ def clean_loan_data(file):
     try:
         df = pd.read_csv(file)
         df = df.rename(columns=lambda x: x.strip())
-        df = df.rename(columns={
+        
+        # 컬럼명 변경을 데이터에 직접 적용
+        column_mapping = {
             '금리': '최저 금리(%)',
             '한도': '대출한도',
             '상환 방식': '상환 방식',  
             '가입 대상': '가입대상',
             '만기이자': '만기이자',
             '저축기간(개월)': '저축기간(개월)'
-        })
+        }
+        
+        for row in df.data:
+            for old_name, new_name in column_mapping.items():
+                if old_name in row:
+                    row[new_name] = row.pop(old_name)
+        
         required = ['금융회사명', '상품명', '최저 금리(%)', '대출한도', '상환 방식', '가입대상', '저축기간(개월)', '만기이자']
-        for c in required:
-            if c not in df:
-                df[c] = '정보 없음'
+        for row in df.data:
+            for c in required:
+                if c not in row or not row[c]:
+                    row[c] = '정보 없음'
+        
         df.dropna(subset=['금융회사명', '상품명'], inplace=True)
         df.fillna('정보 없음', inplace=True)
         return df
@@ -224,24 +521,33 @@ def classify_loan_type(name):
 
 # 상품명 기반으로 대출유형 분류
 if not loan_data.empty:
-    loan_data['대출유형'] = loan_data['상품명'].apply(classify_loan_type)
+    for row in loan_data.data:
+        row['대출유형'] = classify_loan_type(row.get('상품명'))
 
     # 컬럼명 매핑 추가
-    # dtype 오류 방지를 위해 먼저 object로 변환
-    loan_data['최저 금리(%)'] = loan_data['최저 금리(%)'].astype(str)
-    loan_data['금리'] = loan_data['최저 금리(%)'] + '%'  # 금리에 % 추가
-    loan_data['금융권'] = loan_data['금융회사명'].apply(lambda x: '1금융권' if any(bank in str(x) for bank in ['은행', 'KB', '신한', '우리', 'SC', 'BNK', '부산', 'iM뱅크']) else '2금융권')
-    loan_data['대출조건'] = loan_data.get('상환 방식', '정보 없음')  # 대출조건은 상환방식으로
-    loan_data['상환방법'] = loan_data.get('상환 방식', '정보 없음')
-    loan_data['대출기간'] = loan_data.get('저축기간(개월)', '정보 없음')
-    loan_data['가입대상'] = loan_data.get('가입대상', '정보 없음')  # 가입대상은 그대로
-
-    # 기존 logo 설정
-    loan_data["logo"] = loan_data["금융회사명"].apply(logo_filename)
+    for row in loan_data.data:
+        row['최저 금리(%)'] = str(row.get('최저 금리(%)', ''))
+        row['금리'] = row['최저 금리(%)'] + '%'  # 금리에 % 추가
+        
+        bank_name = str(row.get('금융회사명', ''))
+        if any(bank in bank_name for bank in ['은행', 'KB', '신한', '우리', 'SC', 'BNK', '부산', 'iM뱅크']):
+            row['금융권'] = '1금융권'
+        else:
+            row['금융권'] = '2금융권'
+            
+        row['대출조건'] = row.get('상환 방식', '정보 없음')  # 대출조건은 상환방식으로
+        row['상환방법'] = row.get('상환 방식', '정보 없음')
+        row['대출기간'] = row.get('저축기간(개월)', '정보 없음')
+        row['가입대상'] = row.get('가입대상', '정보 없음')  # 가입대상은 그대로
+        row['logo'] = logo_filename(row.get('금융회사명', ''))
 
     # 분류 결과 확인 (디버깅용)
     print("✔ 대출유형 분포:")
-    print(loan_data['대출유형'].value_counts())
+    loan_types = defaultdict(int)
+    for row in loan_data.data:
+        loan_types[row.get('대출유형', '기타')] += 1
+    for loan_type, count in loan_types.items():
+        print(f"{loan_type}: {count}")
 
 # 메인 대출 페이지 라우트
 @app.route('/loans')
@@ -252,21 +558,36 @@ def loans_page():
     max_limit = request.args.get('maxLimit', type=int)  # 
 
     if loan_data.empty:
-        return render_template('loans_list.html', ...)
+        return render_template('loans_list.html', 
+                               breadcrumb=breadcrumb,
+                               products=[],
+                               selected_types=selected_types,
+                               input_amount=input_amount,
+                               current_page=1,
+                               total_pages=1,
+                               product_type='대출',
+                               product_type_url='loans',
+                               max_limit=max_limit)
 
-    df = loan_data.copy()
-    df['상품유형'] = df['대출유형']
+    df = loan_data
+    
+    # 상품유형 추가
+    for row in df.data:
+        row['상품유형'] = row.get('대출유형', '기타')
 
     if input_amount:
         def compute_total(row):
             try:
-                rate = float(str(row['최저 금리(%)']).replace('%', '').strip()) / 100
+                rate = float(str(row.get('최저 금리(%)', '0')).replace('%', '').strip()) / 100
                 return int(input_amount * (1 + rate))
             except:
                 return None
-        df['계산금액'] = df.apply(compute_total, axis=1)
+        
+        for row in df.data:
+            row['계산금액'] = compute_total(row)
     else:
-        df['계산금액'] = None
+        for row in df.data:
+            row['계산금액'] = None
 
     # ✅ 최대한도 숫자화
     def parse_loan_limit(val):
@@ -284,27 +605,30 @@ def loans_page():
                 return int(val)
         except:
             return 0
-    df['한도정수'] = df['대출한도'].apply(parse_loan_limit)
+    
+    for row in df.data:
+        row['한도정수'] = parse_loan_limit(row.get('대출한도', '0'))
 
+    # 필터링
+    filtered_data = df.data.copy()
+    
     if max_limit:
-        df = df[df['한도정수'] >= max_limit]  
+        filtered_data = [row for row in filtered_data if row.get('한도정수', 0) >= max_limit]
 
     if selected_types and '전체' not in selected_types:
-        filtered_df = df[df['상품유형'].isin(selected_types)]
-    else:
-        filtered_df = df
+        filtered_data = [row for row in filtered_data if row.get('상품유형') in selected_types]
 
     # 페이지네이션
     page = request.args.get('page', 1, type=int)
     page_size = 15
     start = (page - 1) * page_size
     end = start + page_size
-    total_pages = (len(filtered_df) + page_size - 1) // page_size
+    total_pages = (len(filtered_data) + page_size - 1) // page_size
 
     return render_template(
         'loans_list.html',
         breadcrumb=breadcrumb,
-        products=filtered_df.iloc[start:end].to_dict('records'),
+        products=filtered_data[start:end],
         selected_types=selected_types,
         input_amount=input_amount,
         current_page=page,
@@ -325,22 +649,24 @@ def api_loans():
         if loan_data.empty:
             return jsonify(products=[])
 
-        df = loan_data.copy()
+        df = loan_data
+        
+        filtered_data = df.data.copy()
         
         if loan_type != '전체':
-            df = df[df['대출유형'] == loan_type]
-        # 전체 조회 시 모든 상품 포함
+            filtered_data = [row for row in filtered_data if row.get('대출유형') == loan_type]
 
         # (금액이 있으면 계산금액 컬럼 추가)
         if amount:
-            rate_series = (
-                df['최저 금리(%)']
-                  .astype(str).str.replace('%','').str.strip().astype(float) / 100
-            )
-            df['계산금액'] = (amount * (1 + rate_series)).round().astype(int)
+            for row in filtered_data:
+                try:
+                    rate = float(str(row.get('최저 금리(%)', '0')).replace('%', '').strip()) / 100
+                    row['계산금액'] = int(amount * (1 + rate))
+                except:
+                    row['계산금액'] = amount
 
         # 필요하면 정렬·페이지네이션도 여기서 처리
-        return jsonify(products=df.to_dict('records'))
+        return jsonify(products=filtered_data)
     except Exception as e:
         print(f"대출 API 오류: {e}")
         return jsonify(products=[])
@@ -365,7 +691,9 @@ def get_initial_consonant(word):
         return ''
 
 if not terms_df.empty:
-    terms_df['초성'] = terms_df['용어'].apply(get_initial_consonant)
+    for row in terms_df.data:
+        if '용어' in row:
+            row['초성'] = get_initial_consonant(row['용어'])
 
 try:
     car_df = pd.read_csv('naver_car_prices.csv')
@@ -377,14 +705,22 @@ except Exception as e:
 # 필터 유틸 함수
 def filter_products(df, period, bank, region):
     try:
+        filtered_data = df.data.copy() if hasattr(df, 'data') else df
+        
         if period:
-            df = df[df['저축기간(개월)'] == int(period)]
+            filtered_data = [row for row in filtered_data 
+                           if str(row.get('저축기간(개월)', '')).strip() == str(period)]
         if bank:
             keys = bank.split('|')
-            df = df[df['금융회사명'].isin(keys)]
-        if region and '지역' in df.columns:
-            df = df[df['지역'] == region]
-        return df
+            filtered_data = [row for row in filtered_data 
+                           if row.get('금융회사명') in keys]
+        if region:
+            filtered_data = [row for row in filtered_data 
+                           if row.get('지역') == region]
+        
+        # DataFrameReplacement 객체로 반환
+        result_df = pd.DataFrame(data=filtered_data)
+        return result_df
     except Exception as e:
         print(f"필터 처리 오류: {e}")
         return df
@@ -403,7 +739,16 @@ def deposits_page():
     ]
     
     try:
-        periods = sorted(pd.concat([deposit_tier1, deposit_tier2])['저축기간(개월)'].unique())
+        combined_data = pd.concat([deposit_tier1, deposit_tier2])
+        periods = []
+        for row in combined_data.data:
+            period = row.get('저축기간(개월)')
+            if period and str(period).strip():
+                try:
+                    periods.append(int(float(str(period).strip())))
+                except:
+                    pass
+        periods = sorted(list(set(periods))) if periods else [6, 12, 24, 36]
     except:
         periods = [6, 12, 24, 36]
     
@@ -439,15 +784,18 @@ def deposits_detail(bank, product_name):
 
     try:
         df = pd.concat([deposit_tier1, deposit_tier2])
-        matched = df[(df['상품명'] == product_name) & (df['금융회사명'] == bank)]
+        matched = None
+        for row in df.data:
+            if row.get('상품명') == product_name and row.get('금융회사명') == bank:
+                matched = row
+                break
 
-        if matched.empty:
+        if not matched:
             return "상품을 찾을 수 없습니다.", 404
 
-        prod = matched.iloc[0]
         return render_template('product_detail.html',
                                breadcrumb=breadcrumb, 
-                               product=prod, 
+                               product=matched, 
                                product_type='예금', 
                                product_type_url='deposits')
     except Exception as e:
@@ -482,7 +830,16 @@ def savings_page():
     ]
     
     try:
-        periods = sorted(pd.concat([savings_tier1, savings_tier2])['저축기간(개월)'].unique())
+        combined_data = pd.concat([savings_tier1, savings_tier2])
+        periods = []
+        for row in combined_data.data:
+            period = row.get('저축기간(개월)')
+            if period and str(period).strip():
+                try:
+                    periods.append(int(float(str(period).strip())))
+                except:
+                    pass
+        periods = sorted(list(set(periods))) if periods else [6, 12, 24, 36]
     except:
         periods = [6, 12, 24, 36]
     
@@ -518,15 +875,18 @@ def savings_detail(bank, product_name):
 
     try:
         df = pd.concat([savings_tier1, savings_tier2])
-        matched = df[(df['상품명'] == product_name) & (df['금융회사명'] == bank)]
+        matched = None
+        for row in df.data:
+            if row.get('상품명') == product_name and row.get('금융회사명') == bank:
+                matched = row
+                break
 
-        if matched.empty:
+        if not matched:
             return "상품을 찾을 수 없습니다.", 404
 
-        prod = matched.iloc[0]
         return render_template('product_detail.html',
                                breadcrumb=breadcrumb, 
-                               product=prod, 
+                               product=matched, 
                                product_type='적금', 
                                product_type_url='savings')
     except Exception as e:
@@ -543,10 +903,10 @@ def api_savings():
         print("적금 요청 - 기간:", period, "| 은행:", bank, "| 지역:", region)
 
         data = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
-        print("전체 적금 상품 수:", len(data))
+        print("전체 적금 상품 수:", len(data.data))
 
         filtered = filter_products(data, period, bank, region)
-        print("필터 후 적금 수:", len(filtered))
+        print("필터 후 적금 수:", len(filtered.data))
 
         filtered = filtered.drop_duplicates(subset=['상품명', '금융회사명'])
 
@@ -569,7 +929,16 @@ def loans_detail(product_name):
     try:
         if loan_data.empty:
             return "대출 데이터가 없습니다.", 404
-        prod = loan_data[loan_data['상품명'] == product_name].iloc[0]
+        
+        prod = None
+        for row in loan_data.data:
+            if row.get('상품명') == product_name:
+                prod = row
+                break
+                
+        if not prod:
+            return "대출 상품을 찾을 수 없습니다.", 404
+            
         return render_template('product_detail.html',
                                breadcrumb=breadcrumb, 
                                product=prod, 
@@ -596,12 +965,16 @@ def api_product_detail(product_type, product_key):
             return "잘못된 product_type입니다.", 400
 
         # 상품 검색
-        matched = df[(df['상품명'] == product_name) & (df['금융회사명'] == bank_name)]
-        if matched.empty:
+        matched = None
+        for row in df.data:
+            if row.get('상품명') == product_name and row.get('금융회사명') == bank_name:
+                matched = row
+                break
+                
+        if not matched:
             return "상품을 찾을 수 없습니다.", 404
 
-        product = matched.iloc[0]
-        return render_template('product_modal.html', product=product, product_type=product_type)
+        return render_template('product_modal.html', product=matched, product_type=product_type)
     except Exception as e:
         print(f"상품 상세 API 오류: {e}")
         return "오류가 발생했습니다.", 500
@@ -617,12 +990,12 @@ def savings_page_list(page):
     try:
         page_size = 15
         df = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
-        total_products = len(df)
+        total_products = len(df.data)
         total_pages = (total_products + page_size - 1) // page_size
         start = (page - 1) * page_size
         end = start + page_size
 
-        page_products = df.iloc[start:end].to_dict('records')
+        page_products = df.data[start:end]
         return render_template(
             'products_list.html',
             breadcrumb=breadcrumb,
@@ -655,12 +1028,12 @@ def deposits_page_list(page):
     try:
         page_size = 15
         df = pd.concat([deposit_tier1, deposit_tier2], ignore_index=True)
-        total_products = len(df)
+        total_products = len(df.data)
         total_pages = (total_products + page_size - 1) // page_size
         start = (page - 1) * page_size
         end = start + page_size
 
-        page_products = df.iloc[start:end].to_dict('records')
+        page_products = df.data[start:end]
         return render_template(
             'products_list.html',
             breadcrumb=breadcrumb,
@@ -707,18 +1080,22 @@ def terms_home():
         page = int(request.args.get('page', 1))
 
         # 필터링 로직을 먼저 처리
+        filtered_data = terms_df.data.copy() if not terms_df.empty else []
+        
         if query:
-            filtered = terms_df[terms_df['용어'].str.contains(query, na=False)]
+            filtered_data = [row for row in filtered_data 
+                           if query.lower() in row.get('용어', '').lower()]
             category = f"검색결과: {query}"
         elif initial:
-            filtered = terms_df[terms_df['초성'] == initial]
+            filtered_data = [row for row in filtered_data 
+                           if row.get('초성') == initial]
             category = initial
         else:
-            filtered = terms_df.copy()
             category = "전체"
 
-        filtered = filtered[['용어', '설명']].sort_values('용어')
-        terms = filtered.to_dict('records')
+        # 정렬
+        filtered_data = sorted(filtered_data, key=lambda x: x.get('용어', ''))
+        terms = [{'용어': row.get('용어', ''), '설명': row.get('설명', '')} for row in filtered_data]
 
         # 페이징 처리
         page_size = 15
@@ -737,7 +1114,9 @@ def terms_home():
             selected_term = random.choice(terms)
             selected = selected_term['용어']
 
-        categories = sorted(terms_df['초성'].unique()) if not terms_df.empty else []
+        categories = []
+        if not terms_df.empty:
+            categories = sorted(list(set(row.get('초성', '') for row in terms_df.data if row.get('초성'))))
 
         return render_template(
             'terms_home.html',
@@ -793,8 +1172,6 @@ def plus_calculator():
 @app.route('/plus/region-data')
 def region_data():
     try:
-        import re  # 정규표현식 사용을 위해 추가
-        
         region = request.args.get('region')
         print(f"요청된 지역: {region}")  # 디버깅용
         
@@ -802,8 +1179,14 @@ def region_data():
         house_df = pd.read_csv('주택_시도별_보증금.csv')
         
         # 지역별 평균 가격 계산
-        avg_prices = house_df.groupby('시도')['가격'].mean().round(0).astype(int).to_dict()
-        price = avg_prices.get(region, '정보없음')
+        avg_prices = house_df.groupby('시도')['가격'].mean()
+        
+        # 딕셔너리로 변환
+        avg_prices_dict = {}
+        for sido, group_data in avg_prices.items():
+            avg_prices_dict[sido] = int(group_data)
+        
+        price = avg_prices_dict.get(region, '정보없음')
 
         # 주택담보대출 상품 데이터
         loan_products = pd.read_csv('주택담보대출_정리본.csv')
@@ -817,15 +1200,16 @@ def region_data():
             except:
                 return 999  # 파싱 실패시 큰 값으로 설정
         
-        loan_products['최소금리'] = loan_products['금리'].apply(extract_min_rate)
+        for row in loan_products.data:
+            row['최소금리'] = extract_min_rate(row.get('금리', '999'))
         
         # 금리 기준 오름차순 정렬하여 상위 6개 선택
-        top_loans = loan_products.sort_values(by='최소금리', ascending=True).head(6)
+        top_loans = sorted(loan_products.data, key=lambda x: x['최소금리'])[:6]
 
         product_list = []
-        for _, row in top_loans.iterrows():
+        for row in top_loans:
             # 대출 한도 처리 (문자열에서 숫자 추출)
-            limit_str = str(row['대출한도'])
+            limit_str = str(row.get('대출한도', ''))
             
             # 대출한도에서 숫자 추출
             def extract_limit_amount(limit_str):
@@ -859,11 +1243,11 @@ def region_data():
                 loan_limit = max_limit
                 
             product_list.append({
-                '상품명': row['상품명'],
-                '금융회사명': row['은행명'],
-                '금리': row['금리'],
+                '상품명': row.get('상품명', ''),
+                '금융회사명': row.get('은행명', ''),
+                '금리': row.get('금리', ''),
                 '대출한도(만원)': loan_limit if loan_limit != 999999 else '제한없음',
-                '상품타입': '정부지원' if row['은행명'] == '정부' else '일반'
+                '상품타입': '정부지원' if row.get('은행명') == '정부' else '일반'
             })
 
         return jsonify({'price': price, 'products': product_list})
@@ -890,7 +1274,16 @@ def car_roadmap():
     
     try:
         # 평균가 계산
-        grouped = car_df.groupby(['차종', '모델명'])['평균가'].mean().round(0).astype(int).reset_index()
+        grouped = car_df.groupby(['차종', '모델명'])['평균가'].mean()
+        
+        # 그룹별 결과를 리스트로 변환
+        car_averages = []
+        for (car_type, model), avg_price in grouped.items():
+            car_averages.append({
+                '차종': car_type,
+                '모델명': model,
+                '평균가': int(avg_price)
+            })
 
         # 이미지 매핑 딕셔너리
         image_map = {
@@ -907,26 +1300,53 @@ def car_roadmap():
 
         # car_list 구성
         car_list = []
-        for _, row in grouped.iterrows():
-            name = row['모델명']
+        for item in car_averages:
+            name = item['모델명']
             car_list.append({
-                '카테고리': row['차종'],
+                '카테고리': item['차종'],
                 '모델명': name,
-                '평균가격': row['평균가'],
+                '평균가격': item['평균가'],
                 '이미지파일명': image_map.get(name, 'default.png')
             })
 
         savings_df = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
-        savings_df = savings_df.dropna(subset=['상품명', '금융회사명', '최고우대금리(%)', '저축기간(개월)'])
-        savings_df['금리'] = savings_df['최고우대금리(%)'].astype(float)
-        savings_df['기간'] = savings_df['저축기간(개월)'].astype(int)
-        savings_products = savings_df[['상품명', '금융회사명', '금리', '기간']].drop_duplicates().to_dict('records')
-        period_options = sorted(savings_df['기간'].unique().tolist())
+        
+        # 유효한 데이터만 필터링
+        valid_savings = []
+        period_set = set()
+        
+        for row in savings_df.data:
+            if (row.get('상품명') and row.get('금융회사명') and 
+                row.get('최고우대금리(%)') and row.get('저축기간(개월)')):
+                try:
+                    rate = float(str(row['최고우대금리(%)']).replace('%', ''))
+                    period = int(float(str(row['저축기간(개월)']).strip()))
+                    
+                    valid_savings.append({
+                        '상품명': row['상품명'],
+                        '금융회사명': row['금융회사명'],
+                        '금리': rate,
+                        '기간': period
+                    })
+                    period_set.add(period)
+                except:
+                    continue
+        
+        # 중복 제거
+        unique_savings = []
+        seen = set()
+        for product in valid_savings:
+            key = (product['상품명'], product['금융회사명'])
+            if key not in seen:
+                seen.add(key)
+                unique_savings.append(product)
+
+        period_options = sorted(list(period_set))
 
         return render_template('car_roadmap.html',
                                breadcrumb=breadcrumb,
                                car_list=car_list,
-                               savings_products=savings_products,
+                               savings_products=unique_savings,
                                period_options=period_options)
     except Exception as e:
         print(f"자동차 로드맵 오류: {e}")
@@ -1043,11 +1463,11 @@ CITY_IMAGES = {
     '상파울루': 'https://images.unsplash.com/photo-1696708430962-d303db58fbc6?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',  # 상파울루 시내
     
     # 아르헨티나
-    '부에노스아이레스': 'https://plus.unsplash.com/premium_photo-1697729901052-fe8900e24993?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',  # 부에노스아이레스 까미니토
+    '부에노스아이레스': 'https://plus.unsplash.com/premium_photo-1697729901052-fe8900e24993?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx4fA%3D%3D',  # 부에노스아이레스 까미니토
     '바릴로체': 'https://images.unsplash.com/photo-1581836499506-4a660b39478a?w=800&q=80',  # 바릴로체 나우엘 우아피 호수
     
     # 페루
-    '리마': 'https://images.unsplash.com/photo-1580530719806-99398637c403?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D0',  # 리마 미라플로레스 해안
+    '리마': 'https://images.unsplash.com/photo-1580530719806-99398637c403?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',  # 리마 미라플로레스 해안
     '쿠스코': 'https://images.unsplash.com/photo-1526392060635-9d6019884377?w=800&q=80',  # 쿠스코 마추픽추
     
     # 칠레
@@ -1095,7 +1515,7 @@ def travel_plan():
         travel_df = pd.read_csv("travel.csv")
         
         # CSV에서 실제 국가 목록 추출
-        available_countries = travel_df['국가'].unique().tolist()
+        available_countries = list(set(row.get('국가', '') for row in travel_df.data if row.get('국가')))
         
         # 대륙별 국가 매핑 (GeoJSON의 7개 대륙에 맞춤)
         continent_mapping = {
@@ -1162,16 +1582,47 @@ def travel_savings_plan():
             months = int(request.form['months'])
 
             # 선택된 도시의 정보 필터링
-            info = travel_df[travel_df['도시'] == selected_city].iloc[0]
-            total_cost = int(info['총예상경비'])
+            info = None
+            for row in travel_df.data:
+                if row.get('도시') == selected_city:
+                    info = row
+                    break
+                    
+            if not info:
+                return jsonify({'success': False, 'error': '도시 정보를 찾을 수 없습니다.'})
+
+            total_cost = int(info.get('총예상경비', 0))
             monthly_saving = total_cost // months
 
             # 추천 적금 상품: 기간 일치 + 금리 높은 순으로 상위 5개
             savings_df = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
-            recommended_products = savings_df[savings_df['저축기간(개월)'] == months] \
-                .sort_values(by='최고우대금리(%)', ascending=False) \
-                .drop_duplicates(subset=['상품명', '금융회사명']) \
-                .head(5).to_dict('records')
+            
+            # 필터링 및 정렬
+            filtered_products = []
+            for row in savings_df.data:
+                try:
+                    if int(float(str(row.get('저축기간(개월)', '0')).strip())) == months:
+                        rate = float(str(row.get('최고우대금리(%)', '0')).replace('%', ''))
+                        filtered_products.append({
+                            '상품명': row.get('상품명', ''),
+                            '금융회사명': row.get('금융회사명', ''),
+                            '최고우대금리(%)': rate
+                        })
+                except:
+                    continue
+            
+            # 중복 제거 후 정렬
+            unique_products = []
+            seen = set()
+            for product in filtered_products:
+                key = (product['상품명'], product['금융회사명'])
+                if key not in seen:
+                    seen.add(key)
+                    unique_products.append(product)
+            
+            recommended_products = sorted(unique_products, 
+                                        key=lambda x: x['최고우대금리(%)'], 
+                                        reverse=True)[:5]
             
             # JSON 응답으로 적금 상품 정보 반환
             return jsonify({
@@ -1189,18 +1640,25 @@ def travel_savings_plan():
                 return redirect(url_for('travel_plan'))
             
             # 선택된 도시의 정보 가져오기
-            city_info = travel_df[travel_df['도시'] == selected_city].iloc[0]
+            city_info = None
+            for row in travel_df.data:
+                if row.get('도시') == selected_city:
+                    city_info = row
+                    break
+                    
+            if not city_info:
+                return redirect(url_for('travel_plan'))
             
             travel_info = {
                 'city': selected_city,
-                'country': city_info['국가'],
-                'theme': city_info['테마'],
-                'reason': city_info['추천이유'],
-                'days': city_info['추천일정'],
-                'total_cost': int(city_info['총예상경비']),
-                'airfare': int(city_info['예상항공료']),
-                'accommodation': int(city_info['숙박비']),
-                'food': int(city_info['식비']),
+                'country': city_info.get('국가', ''),
+                'theme': city_info.get('테마', ''),
+                'reason': city_info.get('추천이유', ''),
+                'days': city_info.get('추천일정', ''),
+                'total_cost': int(city_info.get('총예상경비', 0)),
+                'airfare': int(city_info.get('예상항공료', 0)),
+                'accommodation': int(city_info.get('숙박비', 0)),
+                'food': int(city_info.get('식비', 0)),
                 'image_url': CITY_IMAGES.get(selected_city, 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80')
             }
             
@@ -1210,17 +1668,40 @@ def travel_savings_plan():
             
             for months in [6, 12, 24, 36]:
                 monthly_saving = travel_info['total_cost'] // months
-                recommended_products = savings_df[savings_df['저축기간(개월)'] == months] \
-                    .sort_values(by='최고우대금리(%)', ascending=False) \
-                    .drop_duplicates(subset=['상품명', '금융회사명']) \
-                    .head(5).to_dict('records')
+                
+                # 해당 기간의 적금 상품 찾기
+                filtered_products = []
+                for row in savings_df.data:
+                    try:
+                        if int(float(str(row.get('저축기간(개월)', '0')).strip())) == months:
+                            rate = float(str(row.get('최고우대금리(%)', '0')).replace('%', ''))
+                            filtered_products.append({
+                                '상품명': row.get('상품명', ''),
+                                '금융회사명': row.get('금융회사명', ''),
+                                '최고우대금리(%)': rate
+                            })
+                    except:
+                        continue
+                
+                # 중복 제거 후 정렬
+                unique_products = []
+                seen = set()
+                for product in filtered_products:
+                    key = (product['상품명'], product['금융회사명'])
+                    if key not in seen:
+                        seen.add(key)
+                        unique_products.append(product)
+                
+                recommended_products = sorted(unique_products, 
+                                            key=lambda x: x['최고우대금리(%)'], 
+                                            reverse=True)[:5]
                 
                 # 각 상품에 대해 올바른 적금 계산 추가
                 for product in recommended_products:
                     calculation = calculate_savings_maturity(
                         monthly_saving, 
                         months, 
-                        float(product['최고우대금리(%)'])
+                        product['최고우대금리(%)']
                     )
                     product['calculation'] = calculation
                 
@@ -1265,24 +1746,24 @@ def get_continent_countries(continent_id):
             return jsonify([])
         
         # 해당 대륙의 국가들 데이터 필터링
-        continent_data = travel_df[travel_df['국가'].isin(countries)]
+        continent_data = [row for row in travel_df.data if row.get('국가') in countries]
         
         # 기본 이미지 URL
         default_image = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80'
         
         result = []
-        for _, row in continent_data.iterrows():
-            city_name = row['도시']
+        for row in continent_data:
+            city_name = row.get('도시', '')
             result.append({
-                'country': row['국가'],
+                'country': row.get('국가', ''),
                 'city': city_name,
-                'theme': row['테마'],
-                'reason': row['추천이유'],
-                'days': row['추천일정'],
-                'total_cost': int(row['총예상경비']),
-                'airfare': int(row['예상항공료']),
-                'accommodation': int(row['숙박비']),
-                'food': int(row['식비']),
+                'theme': row.get('테마', ''),
+                'reason': row.get('추천이유', ''),
+                'days': row.get('추천일정', ''),
+                'total_cost': int(row.get('총예상경비', 0)),
+                'airfare': int(row.get('예상항공료', 0)),
+                'accommodation': int(row.get('숙박비', 0)),
+                'food': int(row.get('식비', 0)),
                 'image_url': CITY_IMAGES.get(city_name, default_image)
             })
         
@@ -1315,9 +1796,6 @@ def serve_world_map_data():
         return jsonify({
             "error": f"파일 서빙 중 오류 발생: {str(e)}"
         }), 500
-
-
-
 
 
 # =========================================
@@ -1446,12 +1924,13 @@ def build_result(df, mode, bank_name, product_name, manual_rate, amount, months)
                 }
             
             # 상품 찾기
-            product_data = df[
-                (df['금융회사명'] == bank_name) & 
-                (df['상품명'] == product_name)
-            ]
+            product_data = None
+            for row in df.data:
+                if row.get('금융회사명') == bank_name and row.get('상품명') == product_name:
+                    product_data = row
+                    break
             
-            if product_data.empty:
+            if not product_data:
                 calc_result = calculate_interest_with_tax(amount, 0, months, True)
                 return {
                     '금융회사명': bank_name,
@@ -1463,14 +1942,14 @@ def build_result(df, mode, bank_name, product_name, manual_rate, amount, months)
             
             # 금리 추출 (최고우대금리 우선)
             rate = 0.0
-            if '최고우대금리(%)' in product_data.columns:
-                rate = safe_float_conversion(product_data['최고우대금리(%)'].iloc[0])
-            elif '기본금리(%)' in product_data.columns:
-                rate = safe_float_conversion(product_data['기본금리(%)'].iloc[0])
-            elif '최고우대금리' in product_data.columns:
-                rate = safe_float_conversion(product_data['최고우대금리'].iloc[0])
-            elif '기본금리' in product_data.columns:
-                rate = safe_float_conversion(product_data['기본금리'].iloc[0])
+            if '최고우대금리(%)' in product_data:
+                rate = safe_float_conversion(product_data.get('최고우대금리(%)'))
+            elif '기본금리(%)' in product_data:
+                rate = safe_float_conversion(product_data.get('기본금리(%)'))
+            elif '최고우대금리' in product_data:
+                rate = safe_float_conversion(product_data.get('최고우대금리'))
+            elif '기본금리' in product_data:
+                rate = safe_float_conversion(product_data.get('기본금리'))
             
             # 상품 타입 판단
             is_savings = request.form.get('product_type', 'savings') == 'savings'
@@ -1502,20 +1981,32 @@ def create_product_map():
         
         # 예금 상품 맵
         deposit_df = pd.concat([deposit_tier1, deposit_tier2], ignore_index=True)
-        if not deposit_df.empty and '금융회사명' in deposit_df.columns and '상품명' in deposit_df.columns:
-            deposit_grouped = deposit_df.groupby('금융회사명')['상품명'].apply(
-                lambda x: x.dropna().unique().tolist()
-            ).to_dict()
+        if not deposit_df.empty:
+            deposit_grouped = {}
+            for row in deposit_df.data:
+                bank = row.get('금융회사명', '')
+                product = row.get('상품명', '')
+                if bank and product:
+                    if bank not in deposit_grouped:
+                        deposit_grouped[bank] = []
+                    if product not in deposit_grouped[bank]:
+                        deposit_grouped[bank].append(product)
             product_map['deposit'] = deposit_grouped
         else:
             product_map['deposit'] = {}
         
         # 적금 상품 맵
         savings_df = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
-        if not savings_df.empty and '금융회사명' in savings_df.columns and '상품명' in savings_df.columns:
-            savings_grouped = savings_df.groupby('금융회사명')['상품명'].apply(
-                lambda x: x.dropna().unique().tolist()
-            ).to_dict()
+        if not savings_df.empty:
+            savings_grouped = {}
+            for row in savings_df.data:
+                bank = row.get('금융회사명', '')
+                product = row.get('상품명', '')
+                if bank and product:
+                    if bank not in savings_grouped:
+                        savings_grouped[bank] = []
+                    if product not in savings_grouped[bank]:
+                        savings_grouped[bank].append(product)
             product_map['savings'] = savings_grouped
         else:
             product_map['savings'] = {}
@@ -1569,17 +2060,21 @@ def compare_savings():
                 base_df = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
             
             # 티어 필터링
-            df_l = base_df.copy()
+            df_l = base_df
             if tier_l == 'tier1':
-                df_l = df_l[df_l['금융회사명'].isin(tier1_list)]
+                filtered_data_l = [row for row in base_df.data if row.get('금융회사명') in tier1_list]
+                df_l = pd.DataFrame(data=filtered_data_l)
             elif tier_l == 'tier2':
-                df_l = df_l[df_l['금융회사명'].isin(tier2_list)]
+                filtered_data_l = [row for row in base_df.data if row.get('금융회사명') in tier2_list]
+                df_l = pd.DataFrame(data=filtered_data_l)
             
-            df_r = base_df.copy()
+            df_r = base_df
             if tier_r == 'tier1':
-                df_r = df_r[df_r['금융회사명'].isin(tier1_list)]
+                filtered_data_r = [row for row in base_df.data if row.get('금융회사명') in tier1_list]
+                df_r = pd.DataFrame(data=filtered_data_r)
             elif tier_r == 'tier2':
-                df_r = df_r[df_r['금융회사명'].isin(tier2_list)]
+                filtered_data_r = [row for row in base_df.data if row.get('금융회사명') in tier2_list]
+                df_r = pd.DataFrame(data=filtered_data_r)
             
             # 결과 계산
             res1 = build_result(df_l, mode_l, bank_l, prod_l, rate_l, amount, months)
