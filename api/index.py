@@ -2183,20 +2183,34 @@ def guide_moa():
 
 # 디버깅용 라우트 추가
 @app.route('/debug')
-def debug_data_load():
+def debug_logo_match():
     try:
+        # 실제 데이터의 은행명 몇 개 가져오기
+        sample_banks = set()
+        
+        for row in deposit_tier1.data[:10]:  # 처음 10개만
+            if row.get('금융회사명'):
+                sample_banks.add(row['금융회사명'])
+        
+        for row in savings_tier1.data[:10]:  # 처음 10개만
+            if row.get('금융회사명'):
+                sample_banks.add(row['금융회사명'])
+        
+        sample_banks = list(sample_banks)[:10]
+        
+        # 각 은행명에 대해 로고 매핑 결과 확인
+        matching_results = {}
+        for bank in sample_banks:
+            matching_results[bank] = {
+                'found_exact': bank in bank_logo_map,
+                'logo_result': logo_filename(bank),
+                'possible_matches': [k for k in bank_logo_map.keys() if bank in k or k in bank]
+            }
+        
         return jsonify({
-            'deposit_tier1_count': len(deposit_tier1.data),
-            'deposit_tier2_count': len(deposit_tier2.data),
-            'savings_tier1_count': len(savings_tier1.data),
-            'savings_tier2_count': len(savings_tier2.data),
-            'deposit_tier1_empty': deposit_tier1.empty,
-            'deposit_tier2_empty': deposit_tier2.empty,
-            'savings_tier1_empty': savings_tier1.empty,
-            'savings_tier2_empty': savings_tier2.empty,
-            'deposit_tier1_columns': deposit_tier1.columns,
-            'deposit_tier1_sample': deposit_tier1.data[:2] if deposit_tier1.data else [],
-            'savings_tier1_sample': savings_tier1.data[:2] if savings_tier1.data else []
+            'sample_actual_banks': sample_banks,
+            'logo_map_keys_sample': list(bank_logo_map.keys())[:10],
+            'matching_results': matching_results
         })
     except Exception as e:
         return jsonify({'error': str(e)})
