@@ -1248,84 +1248,89 @@ def region_data():
         region = request.args.get('region')
         print(f"=== 지역 데이터 요청: {region} ===")
         
-        # 파일 로드 시도
-        house_df = None
-        loan_df = None
+        # 파일 로드 - 더 간단하게
+        try:
+            house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'), encoding='utf-8-sig')
+            print(f"주택 파일 로드 시도 완료")
+        except Exception as e:
+            print(f"UTF-8-SIG 실패, UTF-8 시도: {e}")
+            try:
+                house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'), encoding='utf-8')
+            except Exception as e2:
+                print(f"UTF-8도 실패, CP949 시도: {e2}")
+                house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'), encoding='cp949')
         
-        possible_paths = [
-            '주택_시도별_보증금.csv',
-            os.path.join('주택_시도별_보증금.csv'),
-            os.path.join(os.path.dirname(__file__), '주택_시도별_보증금.csv'),
-            os.path.join(os.path.dirname(__file__), '..', '주택_시도별_보증금.csv')
-        ]
-        
-        # 주택 데이터 로드
-        for path in possible_paths:
-            if os.path.exists(path):
-                try:
-                    house_df = pd.read_csv(path, encoding='utf-8-sig')
-                    print(f"✅ 주택 데이터 로드 성공: {path}")
-                    
-                    # BOM 제거
-                    for row in house_df.data:
-                        if '\ufeff시도' in row:
-                            row['시도'] = row.pop('\ufeff시도')
-                        if '\ufeff가격' in row:
-                            row['가격'] = row.pop('\ufeff가격')
-                    
-                    break
-                except Exception as e:
-                    print(f"❌ 주택 데이터 로드 실패 {path}: {e}")
-        
-        if not house_df or house_df.empty:
-            print("❌ 주택 데이터를 찾을 수 없음")
+        if house_df.empty:
+            print("❌ house_df가 비어있음")
             return jsonify({'price': '정보없음', 'products': []})
         
-        print(f"주택 데이터 개수: {len(house_df.data)}")
-        print(f"주택 데이터 컬럼: {house_df.columns}")
+        print(f"✅ 주택 데이터 로드 성공: {len(house_df.data)}개")
+        print(f"컬럼: {house_df.columns}")
         
-        # 샘플 데이터 출력
+        # BOM 제거
+        for row in house_df.data:
+            # 모든 가능한 BOM 패턴 확인
+            keys_to_fix = []
+            for key in row.keys():
+                if '\ufeff' in key:
+                    keys_to_fix.append(key)
+            
+            for key in keys_to_fix:
+                new_key = key.replace('\ufeff', '')
+                row[new_key] = row.pop(key)
+        
+        # 샘플 데이터 출력 (처음 3개)
         for i, row in enumerate(house_df.data[:3]):
-            print(f"주택 샘플 {i}: {row}")
+            print(f"샘플 {i}: {row}")
+        
+        # 실제 컬럼명 확인 (첫 번째 데이터에서)
+        if house_df.data:
+            first_row = house_df.data[0]
+            available_keys = list(first_row.keys())
+            print(f"사용 가능한 키: {available_keys}")
+            
+            # 시도와 가격 컬럼을 찾기
+            sido_key = None
+            price_key = None
+            
+            for key in available_keys:
+                if '시도' in key or 'sido' in key.lower():
+                    sido_key = key
+                if '가격' in key or 'price' in key.lower() or '보증금' in key:
+                    price_key = key
+            
+            print(f"시도 컬럼: {sido_key}, 가격 컬럼: {price_key}")
+        else:
+            print("❌ 데이터가 없음")
+            return jsonify({'price': '정보없음', 'products': []})
+        
+        if not sido_key or not price_key:
+            print("❌ 필요한 컬럼을 찾을 수 없음")
+            return jsonify({'price': '정보없음', 'products': []})
         
         # 지역별 평균 가격 계산
         region_groups = {}
-        valid_data_count = 0
         
         for row in house_df.data:
-            sido = str(row.get('시도', '')).strip()
-            price_str = str(row.get('가격', '0')).strip()
+            sido = str(row.get(sido_key, '')).strip()
+            price_str = str(row.get(price_key, '0')).strip()
             
-            if not sido or sido == 'nan':
+            if not sido or sido == 'nan' or sido == '':
                 continue
-                
+            
             try:
-                # 다양한 형태의 가격 데이터 처리
-                price_clean = price_str.replace(',', '').replace('만원', '').replace('원', '').replace(' ', '')
-                
                 # 숫자만 추출
-                import re
-                numbers = re.findall(r'\d+\.?\d*', price_clean)
-                if numbers:
-                    price = float(numbers[0])
-                else:
-                    price = 0
-                    
-            except Exception as e:
-                print(f"가격 변환 실패: '{price_str}' -> {e}")
+                price_clean = re.sub(r'[^0-9.]', '', price_str)
+                price = float(price_clean) if price_clean else 0
+            except:
                 price = 0
             
             if price > 0:
                 if sido not in region_groups:
                     region_groups[sido] = []
                 region_groups[sido].append(price)
-                valid_data_count += 1
-                
-                if valid_data_count <= 10:  # 처음 10개만 로그
-                    print(f"유효 데이터: 시도='{sido}', 가격={price}")
         
-        print(f"총 유효 데이터: {valid_data_count}개")
-        print(f"지역별 그룹: {list(region_groups.keys())}")
+        print(f"지역별 데이터: {list(region_groups.keys())}")
         
         # 평균 계산
         avg_prices_dict = {}
@@ -1333,65 +1338,45 @@ def region_data():
             if prices:
                 avg_price = sum(prices) / len(prices)
                 avg_prices_dict[sido] = int(avg_price)
-                print(f"{sido}: {len(prices)}개 데이터, 평균 {avg_price:.0f}만원")
         
-        # 요청된 지역의 가격 찾기
+        print(f"평균 가격 딕셔너리: {avg_prices_dict}")
+        
+        # 요청된 지역의 가격
         price = avg_prices_dict.get(region, '정보없음')
-        print(f"요청 지역 '{region}'의 가격: {price}")
+        print(f"'{region}'의 가격: {price}")
         
-        # 대출 상품 로드 (간단히 처리)
-        loan_paths = [p.replace('주택_시도별_보증금.csv', '주택담보대출_정리본.csv') for p in possible_paths]
-        product_list = []
+        # 간단한 더미 대출 상품 (일단 테스트용)
+        product_list = [
+            {
+                '상품명': '주택담보대출 상품1',
+                '금융회사명': '테스트은행',
+                '금리': '3.5%',
+                '대출한도(만원)': 50000,
+                '상품타입': '일반'
+            },
+            {
+                '상품명': '주택담보대출 상품2', 
+                '금융회사명': '테스트저축은행',
+                '금리': '4.2%',
+                '대출한도(만원)': 30000,
+                '상품타입': '일반'
+            }
+        ]
         
-        for path in loan_paths:
-            if os.path.exists(path):
-                try:
-                    loan_df = pd.read_csv(path, encoding='utf-8-sig')
-                    print(f"✅ 대출 데이터 로드 성공: {len(loan_df.data)}개")
-                    
-                    # BOM 제거
-                    for row in loan_df.data:
-                        for key in list(row.keys()):
-                            if key.startswith('\ufeff'):
-                                new_key = key.replace('\ufeff', '')
-                                row[new_key] = row.pop(key)
-                    
-                    # 간단한 상위 3개 상품만
-                    for i, row in enumerate(loan_df.data[:3]):
-                        product_list.append({
-                            '상품명': row.get('상품명', f'상품{i+1}'),
-                            '금융회사명': row.get('은행명', '은행'),
-                            '금리': row.get('금리', '3.5%'),
-                            '대출한도(만원)': 50000,
-                            '상품타입': '일반'
-                        })
-                    break
-                    
-                except Exception as e:
-                    print(f"❌ 대출 데이터 로드 실패: {e}")
-        
-        result = {
+        return jsonify({
             'price': price,
             'products': product_list,
-            'debug_info': {
-                'region_groups_count': len(region_groups),
-                'avg_prices_dict': avg_prices_dict,
-                'valid_data_count': valid_data_count
+            'debug': {
+                'region_groups': list(region_groups.keys()),
+                'avg_prices': avg_prices_dict
             }
-        }
-        
-        print(f"최종 응답: price={price}, products={len(product_list)}개")
-        return jsonify(result)
+        })
         
     except Exception as e:
-        print(f"지역 데이터 전체 오류: {e}")
+        print(f"전체 오류: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            'price': '정보없음', 
-            'products': [],
-            'error': str(e)
-        })
+        return jsonify({'price': '정보없음', 'products': [], 'error': str(e)})
 
 @app.route('/plus/region')
 def plus_region_map():
