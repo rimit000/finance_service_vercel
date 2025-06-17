@@ -2195,32 +2195,22 @@ def guide_moa():
 
 # 디버깅용 라우트 추가
 @app.route('/debug')
-def debug_columns_processing():
+def debug_car_data():
     try:
-        # 샘플 데이터 몇 개만 확인
-        sample_data = []
+        print(f"car_df empty: {car_df.empty}")
+        print(f"car_df columns: {car_df.columns if hasattr(car_df, 'columns') else 'no columns'}")
+        print(f"car_df data length: {len(car_df.data) if hasattr(car_df, 'data') else 'no data'}")
         
-        # savings_tier2에서 웰컴저축은행 데이터 찾기
-        for i, row in enumerate(savings_tier2.data[:10]):  # 처음 10개만
-            bank_name = row.get('금융회사명', '')
-            logo_before = row.get('logo', 'NOT_SET')
-            
-            # logo_filename 함수 직접 테스트
-            logo_direct = logo_filename(bank_name)
-            
-            sample_data.append({
-                'index': i,
-                'bank_name': bank_name,
-                'logo_in_data': logo_before,
-                'logo_direct_call': logo_direct,
-                'has_logo_column': 'logo' in row
-            })
+        if hasattr(car_df, 'data') and len(car_df.data) > 0:
+            print("First few rows:")
+            for i, row in enumerate(car_df.data[:3]):
+                print(f"Row {i}: {row}")
         
         return jsonify({
-            'sample_data': sample_data,
-            'savings_tier2_total': len(savings_tier2.data),
-            'savings_tier2_empty': savings_tier2.empty,
-            'logo_function_test': logo_filename('웰컴저축은행')
+            'empty': car_df.empty,
+            'columns': car_df.columns if hasattr(car_df, 'columns') else [],
+            'data_length': len(car_df.data) if hasattr(car_df, 'data') else 0,
+            'sample_data': car_df.data[:3] if hasattr(car_df, 'data') and len(car_df.data) > 0 else []
         })
     except Exception as e:
         return jsonify({'error': str(e)})
