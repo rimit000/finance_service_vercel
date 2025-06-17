@@ -331,6 +331,22 @@ try:
                     row['모델명'] = row.pop('\ufeff모델명')
                 if '\ufeff평균가' in row:
                     row['평균가'] = row.pop('\ufeff평균가')
+                    
+                # 주택 데이터 BOM 제거 (추가)
+                if '\ufeff시도' in row:
+                    row['시도'] = row.pop('\ufeff시도')
+                if '\ufeff가격' in row:
+                    row['가격'] = row.pop('\ufeff가격')
+                
+                # 주택담보대출 데이터 BOM 제거 (추가)
+                if '\ufeff은행명' in row:
+                    row['은행명'] = row.pop('\ufeff은행명')
+                if '\ufeff상품명' in row:
+                    row['상품명'] = row.pop('\ufeff상품명')
+                if '\ufeff금리' in row:
+                    row['금리'] = row.pop('\ufeff금리')
+                if '\ufeff대출한도' in row:
+                    row['대출한도'] = row.pop('\ufeff대출한도')
     
     # 각 데이터프레임의 컬럼명 정리
     clean_columns(deposit_tier1)
@@ -2319,93 +2335,21 @@ def guide_moa():
 
 # 디버깅용 라우트 추가
 @app.route('/debug')
-def debug_house_all():
+def debug_simple():
     try:
-        import os
-        
-        # 1. 파일 존재 여부 확인
-        possible_paths = [
-            '주택_시도별_보증금.csv',
-            os.path.join('주택_시도별_보증금.csv'),
-            os.path.join(os.path.dirname(__file__), '주택_시도별_보증금.csv'),
-            os.path.join(os.path.dirname(__file__), '..', '주택_시도별_보증금.csv')
-        ]
-        
-        file_info = {}
-        for i, path in enumerate(possible_paths):
-            file_info[f'path_{i}'] = {
-                'path': path,
-                'exists': os.path.exists(path)
-            }
-        
-        # 2. CSV 파일 로드 시도
-        house_df = None
-        loan_df = None
-        
-        for path in possible_paths:
-            if os.path.exists(path):
-                try:
-                    house_df = pd.read_csv(path, encoding='utf-8-sig')
-                    print(f"주택 데이터 로드 성공: {path}")
-                    break
-                except Exception as e:
-                    print(f"주택 데이터 로드 실패 {path}: {e}")
-        
-        # 대출 데이터도 동일하게
-        loan_paths = [p.replace('주택_시도별_보증금.csv', '주택담보대출_정리본.csv') for p in possible_paths]
-        for path in loan_paths:
-            if os.path.exists(path):
-                try:
-                    loan_df = pd.read_csv(path, encoding='utf-8-sig')
-                    print(f"대출 데이터 로드 성공: {path}")
-                    break
-                except Exception as e:
-                    print(f"대출 데이터 로드 실패 {path}: {e}")
-        
         result = {
-            'file_paths': file_info,
-            'house_data': {},
-            'loan_data': {}
+            'house_df_empty': house_df.empty if 'house_df' in globals() else 'not_defined',
+            'house_loan_df_empty': house_loan_df.empty if 'house_loan_df' in globals() else 'not_defined'
         }
         
-        # 3. 주택 데이터 분석
-        if house_df and not house_df.empty:
-            # BOM 제거
-            for row in house_df.data:
-                if '\ufeff시도' in row:
-                    row['시도'] = row.pop('\ufeff시도')
-                if '\ufeff가격' in row:
-                    row['가격'] = row.pop('\ufeff가격')
+        if 'house_df' in globals() and not house_df.empty:
+            result['house_sample'] = house_df.data[:2]
+            result['house_columns'] = house_df.columns
             
-            result['house_data'] = {
-                'columns': house_df.columns,
-                'data_length': len(house_df.data),
-                'sample_data': house_df.data[:5],
-                'all_sido': [row.get('시도', '') for row in house_df.data],
-                'unique_sido': list(set([row.get('시도', '') for row in house_df.data if row.get('시도')])),
-                'price_samples': [row.get('가격', '') for row in house_df.data[:10]]
-            }
-        else:
-            result['house_data'] = {'error': '주택 데이터 없음'}
-        
-        # 4. 대출 데이터 분석
-        if loan_df and not loan_df.empty:
-            # BOM 제거
-            for row in loan_df.data:
-                for key in list(row.keys()):
-                    if key.startswith('\ufeff'):
-                        new_key = key.replace('\ufeff', '')
-                        row[new_key] = row.pop(key)
+        if 'house_loan_df' in globals() and not house_loan_df.empty:
+            result['loan_sample'] = house_loan_df.data[:2]
+            result['loan_columns'] = house_loan_df.columns
             
-            result['loan_data'] = {
-                'columns': loan_df.columns,
-                'data_length': len(loan_df.data),
-                'sample_data': loan_df.data[:3]
-            }
-        else:
-            result['loan_data'] = {'error': '대출 데이터 없음'}
-        
         return jsonify(result)
-        
     except Exception as e:
-        return jsonify({'error': str(e), 'traceback': str(traceback.format_exc())})
+        return jsonify({'error': str(e)})
