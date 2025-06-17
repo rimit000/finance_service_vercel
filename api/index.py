@@ -399,7 +399,7 @@ region_map = {normalize_name(k): v for k, v in region_map_raw.items()}
 
 # 로고 매핑 딕셔너리 생성
 try:
-    logo_df = pd.read_csv('logo_bank.csv')
+    logo_df = pd.read_csv(os.path.join('logo_bank.csv'))
     bank_logo_map = dict(zip(logo_df['은행명'].data, logo_df['로고파일명'].data))
     print("✅ 로고 매핑 로드 성공")
 except Exception as e:
