@@ -1292,8 +1292,19 @@ def car_roadmap():
         {'name': '당신의 미래를 모으는 시간', 'url': '/plus/roadmap'},
         {'name': 'CAR MOA', 'current': True}
     ]
-    
+
     try:
+        print(f"car_df 로드 상태: empty={car_df.empty}, 길이={len(car_df.data) if hasattr(car_df, 'data') else 'N/A'}")
+        
+        if car_df.empty:
+            print("❌ car_df가 비어있습니다")
+            return render_template('car_roadmap.html',
+                                   breadcrumb=breadcrumb,
+                                   car_list=[],
+                                   savings_products=[],
+                                   period_options=[])
+
+    
         # 평균가 계산
         grouped = car_df.groupby(['차종', '모델명'])['평균가'].mean()
         
