@@ -717,7 +717,7 @@ if not terms_df.empty:
             row['초성'] = get_initial_consonant(row['용어'])
 
 try:
-    car_df = pd.read_csv('naver_car_prices.csv')
+    car_df = pd.read_csv(os.path.join('naver_car_prices.csv'))
     print("✅ 자동차 가격 데이터 로드 성공")
 except Exception as e:
     print(f"❌ 자동차 가격 데이터 로드 실패: {e}")
