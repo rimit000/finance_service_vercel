@@ -1241,49 +1241,68 @@ def plus_calculator():
 @app.route('/plus/region-data')
 def region_data():
     try:
-        import re  # 정규표현식 사용을 위해 추가
+        import re
         
         region = request.args.get('region')
-        print(f"요청된 지역: {region}")  # 디버깅용
+        print(f"요청된 지역: {region}")
         
         # CSV 파일 읽기
         house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'))
-        
-        # 지역별 평균 가격 계산
-        avg_prices = house_df.groupby('시도')['가격'].mean().round(0).astype(int).to_dict()
-        price = avg_prices.get(region, '정보없음')
-
-        # 주택담보대출 상품 데이터
         loan_products = pd.read_csv(os.path.join('주택담보대출_정리본.csv'))
         
-        # 금리에서 최소값 추출하여 정렬 (예: "2.88~9.70%" → 2.88)
+        # 지역별 평균 가격 계산 - 커스텀 클래스용으로 수정
+        avg_prices_dict = {}
+        region_groups = {}
+        
+        # 지역별로 그룹핑
+        for row in house_df.data:
+            sido = row.get('시도', '')
+            price_str = str(row.get('가격', '0'))
+            
+            try:
+                price = float(price_str.replace(',', ''))
+            except:
+                price = 0
+                
+            if sido not in region_groups:
+                region_groups[sido] = []
+            region_groups[sido].append(price)
+        
+        # 평균 계산
+        for sido, prices in region_groups.items():
+            if prices:
+                avg_prices_dict[sido] = int(sum(prices) / len(prices))
+        
+        price = avg_prices_dict.get(region, '정보없음')
+        print(f"지역 {region}의 평균 가격: {price}")
+        
+        # 금리에서 최소값 추출하여 정렬
         def extract_min_rate(rate_str):
             try:
-                # "2.88~9.70%" 형태에서 최소값만 추출
                 rate = str(rate_str).replace('%', '').split('~')[0]
                 return float(rate)
             except:
-                return 999  # 파싱 실패시 큰 값으로 설정
+                return 999
         
-        loan_products['최소금리'] = loan_products['금리'].apply(extract_min_rate)
+        # 각 대출 상품에 최소금리 추가
+        loan_list = []
+        for row in loan_products.data:
+            row_copy = row.copy()
+            row_copy['최소금리'] = extract_min_rate(row.get('금리', '999'))
+            loan_list.append(row_copy)
         
-        # 금리 기준 오름차순 정렬하여 상위 6개 선택
-        top_loans = loan_products.sort_values(by='최소금리', ascending=True).head(6)
-
+        # 금리 기준 정렬하여 상위 6개 선택
+        top_loans = sorted(loan_list, key=lambda x: x['최소금리'])[:6]
+        
         product_list = []
-        for _, row in top_loans.iterrows():
-            # 대출 한도 처리 (문자열에서 숫자 추출)
-            limit_str = str(row['대출한도'])
-            
+        for row in top_loans:
             # 대출한도에서 숫자 추출
             def extract_limit_amount(limit_str):
                 try:
                     if '억원' in limit_str:
-                        # "최대 10억원" → 10억 = 100000만원
                         num = re.findall(r'(\d+(?:\.\d+)?)', limit_str)[0]
                         return int(float(num) * 10000)
                     elif '천만원' in limit_str:
-                        # "최대 4억 2천만원" → 42000만원
                         numbers = re.findall(r'(\d+)', limit_str)
                         if len(numbers) >= 2:
                             return int(numbers[0]) * 10000 + int(numbers[1]) * 1000
@@ -1292,39 +1311,47 @@ def region_data():
                         num = re.findall(r'(\d+)', limit_str)[0]
                         return int(num)
                     elif '제한없음' in limit_str or '감정가' in limit_str:
-                        return 999999  # 매우 큰 값으로 설정
+                        return 999999
                     else:
-                        return 50000  # 기본값 5억
+                        return 50000
                 except:
                     return 50000
             
+            limit_str = str(row.get('대출한도', ''))
             max_limit = extract_limit_amount(limit_str)
             
-            # 실제 대출 가능 금액 (전세가의 80% 또는 상품 최대 한도 중 작은 값)
+            # 실제 대출 가능 금액 계산
             if price != '정보없음':
                 loan_limit = min(int(price * 0.8), max_limit)
             else:
                 loan_limit = max_limit
-                
+            
             product_list.append({
-                '상품명': row['상품명'],
-                '금융회사명': row['은행명'],
-                '금리': row['금리'],
+                '상품명': row.get('상품명', ''),
+                '금융회사명': row.get('은행명', ''),
+                '금리': row.get('금리', ''),
                 '대출한도(만원)': loan_limit if loan_limit != 999999 else '제한없음',
-                '상품타입': '정부지원' if row['은행명'] == '정부' else '일반'
+                '상품타입': '정부지원' if row.get('은행명') == '정부' else '일반'
             })
-
+        
+        print(f"상품 개수: {len(product_list)}")
         return jsonify({'price': price, 'products': product_list})
+        
     except Exception as e:
         print(f"지역 데이터 오류: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'price': '정보없음', 'products': []})
 
-@app.template_filter('extract_rate')
-def extract_rate(val):
-    if isinstance(val, str):
-        m = re.search(r'[\d.]+', val)
-        return m.group(0) if m else '0'
-    return str(val)
+@app.route('/plus/region')
+def plus_region_map():
+    breadcrumb = [
+        {'name': '홈', 'url': '/'},
+        {'name': 'MOA PLUS', 'url': '/plus'},
+        {'name': '당신의 미래를 모으는 시간', 'url': '/plus/roadmap'},
+        {'name': 'HOUSE MOA', 'current': True}
+    ]
+    return render_template('region_map.html', breadcrumb=breadcrumb)
 
 # ✔ car-roadmap 라우트에 적금 가입 가능 기간도 추가
 @app.route('/plus/car-roadmap')
@@ -1441,15 +1468,7 @@ def car_roadmap():
                                car_list=[],
                                savings_products=[],
                                period_options=[])
-@app.route('/plus/region')
-def plus_region_map():
-    breadcrumb = [
-        {'name': '홈', 'url': '/'},
-        {'name': 'MOA PLUS', 'url': '/plus'},
-        {'name': '당신의 미래를 모으는 시간', 'url': '/plus/roadmap'},
-        {'name': 'HOUSE MOA', 'current': True}
-    ]
-    return render_template('region_map.html', breadcrumb=breadcrumb)
+
 
 ## ------------------------------------------------------------
 ## 트립모아 (여행) trip travel 수정본
