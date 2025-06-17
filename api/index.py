@@ -716,9 +716,27 @@ if not terms_df.empty:
         if '용어' in row:
             row['초성'] = get_initial_consonant(row['용어'])
 
+# BOM 문자 제거 함수 (기존 함수 활용)
+def clean_columns(df):
+    if not df.empty:
+        for row in df.data:
+            if '\ufeff차종' in row:
+                row['차종'] = row.pop('\ufeff차종')
+            # 다른 BOM이 있을 수도 있으니 추가 확인
+            if '\ufeff모델명' in row:
+                row['모델명'] = row.pop('\ufeff모델명')
+            if '\ufeff평균가' in row:
+                row['평균가'] = row.pop('\ufeff평균가')
+
+# 자동차 데이터 로드 후 BOM 정리
 try:
-    car_df = pd.read_csv(os.path.join('naver_car_prices.csv'))
+    car_df = pd.read_csv(os.path.join('naver_car_prices.csv'), encoding='utf-8-sig')
+    
+    # BOM 문자 제거
+    clean_columns(car_df)
+    
     print("✅ 자동차 가격 데이터 로드 성공")
+    print(f"정리된 컬럼: {car_df.columns}")
 except Exception as e:
     print(f"❌ 자동차 가격 데이터 로드 실패: {e}")
     car_df = pd.DataFrame()
