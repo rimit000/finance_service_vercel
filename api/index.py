@@ -324,6 +324,13 @@ try:
             for row in df.data:
                 if '\ufeff금융회사명' in row:
                     row['금융회사명'] = row.pop('\ufeff금융회사명')
+                # 자동차 데이터 BOM 제거 (추가)
+                if '\ufeff차종' in row:
+                    row['차종'] = row.pop('\ufeff차종')
+                if '\ufeff모델명' in row:
+                    row['모델명'] = row.pop('\ufeff모델명')
+                if '\ufeff평균가' in row:
+                    row['평균가'] = row.pop('\ufeff평균가')
     
     # 각 데이터프레임의 컬럼명 정리
     clean_columns(deposit_tier1)
@@ -716,17 +723,7 @@ if not terms_df.empty:
         if '용어' in row:
             row['초성'] = get_initial_consonant(row['용어'])
 
-# BOM 문자 제거 함수 (기존 함수 활용)
-def clean_columns(df):
-    if not df.empty:
-        for row in df.data:
-            if '\ufeff차종' in row:
-                row['차종'] = row.pop('\ufeff차종')
-            # 다른 BOM이 있을 수도 있으니 추가 확인
-            if '\ufeff모델명' in row:
-                row['모델명'] = row.pop('\ufeff모델명')
-            if '\ufeff평균가' in row:
-                row['평균가'] = row.pop('\ufeff평균가')
+
 
 # 자동차 데이터 로드 후 BOM 정리
 try:
@@ -1304,107 +1301,127 @@ def extract_rate(val):
 # ✔ car-roadmap 라우트에 적금 가입 가능 기간도 추가
 @app.route('/plus/car-roadmap')
 def car_roadmap():
-    breadcrumb = [
-        {'name': '홈', 'url': '/'},
-        {'name': 'MOA PLUS', 'url': '/plus'},
-        {'name': '당신의 미래를 모으는 시간', 'url': '/plus/roadmap'},
-        {'name': 'CAR MOA', 'current': True}
-    ]
+   breadcrumb = [
+       {'name': '홈', 'url': '/'},
+       {'name': 'MOA PLUS', 'url': '/plus'},
+       {'name': '당신의 미래를 모으는 시간', 'url': '/plus/roadmap'},
+       {'name': 'CAR MOA', 'current': True}
+   ]
+   
+   try:
+       print("=== CAR ROADMAP 디버깅 시작 ===")
+       print(f"car_df.empty: {car_df.empty}")
+       print(f"car_df columns: {car_df.columns}")
+       
+       if car_df.empty:
+           print("❌ car_df가 비어있습니다")
+           return render_template('car_roadmap.html',
+                                  breadcrumb=breadcrumb,
+                                  car_list=[],
+                                  savings_products=[],
+                                  period_options=[])
+       
+       print(f"car_df 데이터 개수: {len(car_df.data)}")
+       
+       # 직접 데이터를 처리 - BOM 제거된 컬럼명 사용
+       car_dict = {}
+       for row in car_df.data:
+           car_type = row.get('차종', '')
+           model = row.get('모델명', '')
+           price_str = str(row.get('평균가', '0'))
+           
+           print(f"처리 중인 데이터: 차종={car_type}, 모델={model}, 가격={price_str}")
+           
+           try:
+               price = int(float(price_str.replace(',', '')))
+           except:
+               price = 0
+           
+           key = (car_type, model)
+           if key not in car_dict:
+               car_dict[key] = []
+           car_dict[key].append(price)
+       
+       # 이미지 매핑 딕셔너리
+       image_map = {
+           'Ray': 'ray.png',
+           'Casper': 'kester.png',
+           'Morning': 'moring.png',
+           'K3': 'kia_k3.png',
+           'Avante': 'avante.png',
+           'Sonata': 'sonata.png',
+           'XM3': 'renault_xm3.png',
+           'Kona': 'kona.png',
+           'Seltos': 'seltos.png',
+       }
 
-    try:
-        print(f"car_df 로드 상태: empty={car_df.empty}, 길이={len(car_df.data) if hasattr(car_df, 'data') else 'N/A'}")
-        
-        if car_df.empty:
-            print("❌ car_df가 비어있습니다")
-            return render_template('car_roadmap.html',
-                                   breadcrumb=breadcrumb,
-                                   car_list=[],
-                                   savings_products=[],
-                                   period_options=[])
+       # car_list 구성
+       car_list = []
+       for (car_type, model), prices in car_dict.items():
+           if prices:  # 가격 데이터가 있는 경우만
+               avg_price = sum(prices) // len(prices)
+               car_list.append({
+                   '카테고리': car_type,
+                   '모델명': model,
+                   '평균가격': avg_price,
+                   '이미지파일명': image_map.get(model, 'default.png')
+               })
+       
+       print(f"최종 car_list: {car_list}")
 
-    
-        # 평균가 계산
-        grouped = car_df.groupby(['차종', '모델명'])['평균가'].mean()
-        
-        # 그룹별 결과를 리스트로 변환
-        car_averages = []
-        for (car_type, model), avg_price in grouped.items():
-            car_averages.append({
-                '차종': car_type,
-                '모델명': model,
-                '평균가': int(avg_price)
-            })
+       # 적금 데이터 처리
+       savings_df = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
+       
+       # 유효한 데이터만 필터링
+       valid_savings = []
+       period_set = set()
+       
+       for row in savings_df.data:
+           if (row.get('상품명') and row.get('금융회사명') and 
+               row.get('최고우대금리(%)') and row.get('저축기간(개월)')):
+               try:
+                   rate = float(str(row['최고우대금리(%)']).replace('%', ''))
+                   period = int(float(str(row['저축기간(개월)']).strip()))
+                   
+                   valid_savings.append({
+                       '상품명': row['상품명'],
+                       '금융회사명': row['금융회사명'],
+                       '금리': rate,
+                       '기간': period
+                   })
+                   period_set.add(period)
+               except:
+                   continue
+       
+       # 중복 제거
+       unique_savings = []
+       seen = set()
+       for product in valid_savings:
+           key = (product['상품명'], product['금융회사명'])
+           if key not in seen:
+               seen.add(key)
+               unique_savings.append(product)
 
-        # 이미지 매핑 딕셔너리
-        image_map = {
-            'Ray': 'ray.png',
-            'Casper': 'kester.png',
-            'Morning': 'moring.png',
-            'K3': 'kia_k3.png',
-            'Avante': 'avante.png',
-            'Sonata': 'sonata.png',
-            'XM3': 'renault_xm3.png',
-            'Kona': 'kona.png',
-            'Seltos': 'seltos.png',
-        }
+       period_options = sorted(list(period_set))
+       
+       print(f"적금 상품 개수: {len(unique_savings)}")
+       print(f"기간 옵션: {period_options}")
 
-        # car_list 구성
-        car_list = []
-        for item in car_averages:
-            name = item['모델명']
-            car_list.append({
-                '카테고리': item['차종'],
-                '모델명': name,
-                '평균가격': item['평균가'],
-                '이미지파일명': image_map.get(name, 'default.png')
-            })
-
-        savings_df = pd.concat([savings_tier1, savings_tier2], ignore_index=True)
-        
-        # 유효한 데이터만 필터링
-        valid_savings = []
-        period_set = set()
-        
-        for row in savings_df.data:
-            if (row.get('상품명') and row.get('금융회사명') and 
-                row.get('최고우대금리(%)') and row.get('저축기간(개월)')):
-                try:
-                    rate = float(str(row['최고우대금리(%)']).replace('%', ''))
-                    period = int(float(str(row['저축기간(개월)']).strip()))
-                    
-                    valid_savings.append({
-                        '상품명': row['상품명'],
-                        '금융회사명': row['금융회사명'],
-                        '금리': rate,
-                        '기간': period
-                    })
-                    period_set.add(period)
-                except:
-                    continue
-        
-        # 중복 제거
-        unique_savings = []
-        seen = set()
-        for product in valid_savings:
-            key = (product['상품명'], product['금융회사명'])
-            if key not in seen:
-                seen.add(key)
-                unique_savings.append(product)
-
-        period_options = sorted(list(period_set))
-
-        return render_template('car_roadmap.html',
-                               breadcrumb=breadcrumb,
-                               car_list=car_list,
-                               savings_products=unique_savings,
-                               period_options=period_options)
-    except Exception as e:
-        print(f"자동차 로드맵 오류: {e}")
-        return render_template('car_roadmap.html',
-                               breadcrumb=breadcrumb,
-                               car_list=[],
-                               savings_products=[],
-                               period_options=[])
+       return render_template('car_roadmap.html',
+                              breadcrumb=breadcrumb,
+                              car_list=car_list,
+                              savings_products=unique_savings,
+                              period_options=period_options)
+                              
+   except Exception as e:
+       print(f"자동차 로드맵 오류: {e}")
+       import traceback
+       traceback.print_exc()
+       return render_template('car_roadmap.html',
+                              breadcrumb=breadcrumb,
+                              car_list=[],
+                              savings_products=[],
+                              period_options=[])
 
 @app.route('/plus/region')
 def plus_region_map():
