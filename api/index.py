@@ -1243,17 +1243,30 @@ def plus_calculator():
 def region_data():
     try:
         import re
+        import os
         
         region = request.args.get('region')
         print(f"=== 요청된 지역: {region} ===")
         
+        # 현재 파일 위치에서 상위 디렉토리로 이동
+        current_dir = os.path.dirname(os.path.abspath(__file__))  # api/ 폴더
+        parent_dir = os.path.dirname(current_dir)                  # 루트 폴더
+        
+        house_csv_path = os.path.join(parent_dir, '주택_시도별_보증금.csv')
+        loan_csv_path = os.path.join(parent_dir, '주택담보대출_정리본.csv')
+        
+        print(f"주택 파일 경로: {house_csv_path}")
+        print(f"대출 파일 경로: {loan_csv_path}")
+        print(f"주택 파일 존재: {os.path.exists(house_csv_path)}")
+        print(f"대출 파일 존재: {os.path.exists(loan_csv_path)}")
+        
         # 1. 주택 가격 데이터 로드
         try:
-            house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'), encoding='utf-8-sig')
+            house_df = pd.read_csv(house_csv_path, encoding='utf-8-sig')
             print(f"✅ 주택 데이터 로드: {len(house_df.data)}개")
         except:
             try:
-                house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'), encoding='utf-8')
+                house_df = pd.read_csv(house_csv_path, encoding='utf-8')
                 print(f"✅ 주택 데이터 로드 (UTF-8): {len(house_df.data)}개")
             except Exception as e:
                 print(f"❌ 주택 데이터 로드 실패: {e}")
@@ -1272,17 +1285,11 @@ def region_data():
         
         print(f"주택 데이터 컬럼: {house_df.columns}")
         
-        # 샘플 출력
-        for i, row in enumerate(house_df.data[:3]):
-            print(f"주택 샘플 {i}: {row}")
-        
-        # 2. 지역별 가격 찾기 (단순 매칭)
+        # 2. 지역별 가격 찾기
         price = '정보없음'
         for row in house_df.data:
             sido = str(row.get('시도', '')).strip()
             price_val = row.get('가격', 0)
-            
-            print(f"비교: '{sido}' vs '{region}'")
             
             if sido == region:
                 try:
@@ -1292,16 +1299,14 @@ def region_data():
                 except:
                     price = '정보없음'
         
-        print(f"최종 가격: {price}")
-        
         # 3. 대출 상품 데이터 로드
         product_list = []
         try:
-            loan_df = pd.read_csv(os.path.join('주택담보대출_정리본.csv'), encoding='utf-8-sig')
+            loan_df = pd.read_csv(loan_csv_path, encoding='utf-8-sig')
             print(f"✅ 대출 데이터 로드: {len(loan_df.data)}개")
         except:
             try:
-                loan_df = pd.read_csv(os.path.join('주택담보대출_정리본.csv'), encoding='utf-8')
+                loan_df = pd.read_csv(loan_csv_path, encoding='utf-8')
                 print(f"✅ 대출 데이터 로드 (UTF-8): {len(loan_df.data)}개")
             except Exception as e:
                 print(f"❌ 대출 데이터 로드 실패: {e}")
@@ -1315,68 +1320,26 @@ def region_data():
                         new_key = key.replace('\ufeff', '')
                         row[new_key] = row.pop(key)
             
-            print(f"대출 데이터 컬럼: {loan_df.columns}")
-            
-            # 금리 기준으로 정렬하여 상위 6개 선택
-            def extract_min_rate(rate_str):
-                try:
-                    # "3.5%" 또는 "3.5~4.2%" 형태에서 최소값 추출
-                    rate_clean = str(rate_str).replace('%', '').split('~')[0].split('-')[0]
-                    return float(rate_clean)
-                except:
-                    return 999
-            
-            # 금리로 정렬
-            loan_list = []
-            for row in loan_df.data:
-                rate_val = extract_min_rate(row.get('금리', '999'))
-                loan_list.append({
-                    '은행명': row.get('은행명', ''),
-                    '상품명': row.get('상품명', ''),
-                    '금리': row.get('금리', ''),
-                    '대출한도': row.get('대출한도', ''),
-                    '최소금리': rate_val
-                })
-            
-            # 금리 낮은 순으로 정렬하여 상위 6개
-            sorted_loans = sorted(loan_list, key=lambda x: x['최소금리'])[:6]
-            
-            for loan in sorted_loans:
-                # 대출한도 처리
-                limit_str = str(loan['대출한도'])
-                
-                def extract_limit_amount(limit_str):
-                    try:
-                        if '억' in limit_str:
-                            numbers = re.findall(r'(\d+(?:\.\d+)?)', limit_str)
-                            if numbers:
-                                return int(float(numbers[0]) * 10000)
-                        elif '만' in limit_str:
-                            numbers = re.findall(r'(\d+)', limit_str)
-                            if numbers:
-                                return int(numbers[0])
-                        elif '제한없음' in limit_str or '감정가' in limit_str:
-                            return 999999
-                        else:
-                            return 50000
-                    except:
-                        return 50000
-                
-                max_limit = extract_limit_amount(limit_str)
-                
-                # 실제 대출 가능 금액 계산
-                if price != '정보없음' and isinstance(price, int):
-                    loan_limit = min(int(price * 0.8), max_limit)
-                else:
-                    loan_limit = max_limit
-                
+            # 상위 6개 대출 상품 생성
+            for i, row in enumerate(loan_df.data[:6]):
                 product_list.append({
-                    '상품명': loan['상품명'],
-                    '금융회사명': loan['은행명'],
-                    '금리': loan['금리'],
-                    '대출한도(만원)': loan_limit if loan_limit != 999999 else '제한없음',
-                    '상품타입': '정부지원' if '정부' in loan['은행명'] else '일반'
+                    '상품명': row.get('상품명', f'상품{i+1}'),
+                    '금융회사명': row.get('은행명', '은행'),
+                    '금리': row.get('금리', '3.5%'),
+                    '대출한도(만원)': 50000,
+                    '상품타입': '일반'
                 })
+        
+        return jsonify({
+            'price': price,
+            'products': product_list
+        })
+        
+    except Exception as e:
+        print(f"전체 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'price': '정보없음', 'products': []})
         
         print(f"최종 상품 개수: {len(product_list)}")
         
