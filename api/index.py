@@ -1247,14 +1247,14 @@ def region_data():
         print(f"요청된 지역: {region}")  # 디버깅용
         
         # CSV 파일 읽기
-        house_df = pd.read_csv('주택_시도별_보증금.csv')
+        house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'))
         
         # 지역별 평균 가격 계산
         avg_prices = house_df.groupby('시도')['가격'].mean().round(0).astype(int).to_dict()
         price = avg_prices.get(region, '정보없음')
 
         # 주택담보대출 상품 데이터
-        loan_products = pd.read_csv('주택담보대출_정리본.csv')
+        loan_products = pd.read_csv(os.path.join('주택담보대출_정리본.csv'))
         
         # 금리에서 최소값 추출하여 정렬 (예: "2.88~9.70%" → 2.88)
         def extract_min_rate(rate_str):
