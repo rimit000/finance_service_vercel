@@ -1238,97 +1238,151 @@ def plus_calculator():
     ]
     return render_template('calculator_home.html', breadcrumb=breadcrumb)
 
+# 기존 CSV 로드 부분 뒤에 추가
+try:
+    house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'), encoding='utf-8-sig')
+    
+    # BOM 문자 제거
+    for row in house_df.data:
+        if '\ufeff시도' in row:
+            row['시도'] = row.pop('\ufeff시도')
+        if '\ufeff가격' in row:
+            row['가격'] = row.pop('\ufeff가격')
+    
+    print("✅ 주택 시도별 보증금 데이터 로드 성공")
+except Exception as e:
+    print(f"❌ 주택 시도별 보증금 데이터 로드 실패: {e}")
+    house_df = pd.DataFrame()
+
+try:
+    house_loan_df = pd.read_csv(os.path.join('주택담보대출_정리본.csv'), encoding='utf-8-sig')
+    
+    # BOM 문자 제거
+    for row in house_loan_df.data:
+        if '\ufeff은행명' in row:
+            row['은행명'] = row.pop('\ufeff은행명')
+        if '\ufeff상품명' in row:
+            row['상품명'] = row.pop('\ufeff상품명')
+        if '\ufeff금리' in row:
+            row['금리'] = row.pop('\ufeff금리')
+        if '\ufeff대출한도' in row:
+            row['대출한도'] = row.pop('\ufeff대출한도')
+    
+    print("✅ 주택담보대출 데이터 로드 성공")
+except Exception as e:
+    print(f"❌ 주택담보대출 데이터 로드 실패: {e}")
+    house_loan_df = pd.DataFrame()
+
 # 하우스 모아
 @app.route('/plus/region-data')
 def region_data():
     try:
         import re
-        import os
         
         region = request.args.get('region')
         print(f"=== 요청된 지역: {region} ===")
         
-        # 현재 파일 위치에서 상위 디렉토리로 이동
-        current_dir = os.path.dirname(os.path.abspath(__file__))  # api/ 폴더
-        parent_dir = os.path.dirname(current_dir)                  # 루트 폴더
-        
-        house_csv_path = os.path.join(parent_dir, '주택_시도별_보증금.csv')
-        loan_csv_path = os.path.join(parent_dir, '주택담보대출_정리본.csv')
-        
-        print(f"주택 파일 경로: {house_csv_path}")
-        print(f"대출 파일 경로: {loan_csv_path}")
-        print(f"주택 파일 존재: {os.path.exists(house_csv_path)}")
-        print(f"대출 파일 존재: {os.path.exists(loan_csv_path)}")
-        
-        # 1. 주택 가격 데이터 로드
-        try:
-            house_df = pd.read_csv(house_csv_path, encoding='utf-8-sig')
-            print(f"✅ 주택 데이터 로드: {len(house_df.data)}개")
-        except:
-            try:
-                house_df = pd.read_csv(house_csv_path, encoding='utf-8')
-                print(f"✅ 주택 데이터 로드 (UTF-8): {len(house_df.data)}개")
-            except Exception as e:
-                print(f"❌ 주택 데이터 로드 실패: {e}")
-                return jsonify({'price': '정보없음', 'products': []})
-        
+        # 이미 로드된 전역 변수 사용 (다른 API들과 동일한 방식)
         if house_df.empty:
             print("❌ 주택 데이터가 비어있음")
             return jsonify({'price': '정보없음', 'products': []})
         
-        # BOM 제거
-        for row in house_df.data:
-            if '\ufeff시도' in row:
-                row['시도'] = row.pop('\ufeff시도')
-            if '\ufeff가격' in row:
-                row['가격'] = row.pop('\ufeff가격')
-        
+        print(f"주택 데이터 개수: {len(house_df.data)}")
         print(f"주택 데이터 컬럼: {house_df.columns}")
         
-        # 2. 지역별 가격 찾기
+        # 샘플 데이터 출력
+        for i, row in enumerate(house_df.data[:3]):
+            print(f"주택 샘플 {i}: {row}")
+        
+        # 지역별 가격 찾기 (다른 API들처럼 단순하게)
         price = '정보없음'
         for row in house_df.data:
             sido = str(row.get('시도', '')).strip()
             price_val = row.get('가격', 0)
             
+            print(f"비교 중: '{sido}' vs '{region}'")
+            
             if sido == region:
                 try:
                     price = int(price_val)
-                    print(f"✅ 매칭 성공: {region} = {price}만원")
+                    print(f"✅ 지역 매칭 성공: {region} = {price}만원")
                     break
-                except:
+                except Exception as e:
+                    print(f"가격 변환 실패: {e}")
                     price = '정보없음'
         
-        # 3. 대출 상품 데이터 로드
-        product_list = []
-        try:
-            loan_df = pd.read_csv(loan_csv_path, encoding='utf-8-sig')
-            print(f"✅ 대출 데이터 로드: {len(loan_df.data)}개")
-        except:
-            try:
-                loan_df = pd.read_csv(loan_csv_path, encoding='utf-8')
-                print(f"✅ 대출 데이터 로드 (UTF-8): {len(loan_df.data)}개")
-            except Exception as e:
-                print(f"❌ 대출 데이터 로드 실패: {e}")
-                loan_df = pd.DataFrame()
+        print(f"최종 지역 가격: {price}")
         
-        if not loan_df.empty:
-            # BOM 제거
-            for row in loan_df.data:
-                for key in list(row.keys()):
-                    if key.startswith('\ufeff'):
-                        new_key = key.replace('\ufeff', '')
-                        row[new_key] = row.pop(key)
+        # 대출 상품 처리 (다른 API들과 동일한 패턴)
+        product_list = []
+        
+        if not house_loan_df.empty:
+            print(f"대출 데이터 개수: {len(house_loan_df.data)}")
             
-            # 상위 6개 대출 상품 생성
-            for i, row in enumerate(loan_df.data[:6]):
+            # 금리 추출 함수
+            def extract_min_rate(rate_str):
+                try:
+                    rate_clean = str(rate_str).replace('%', '').split('~')[0].split('-')[0].strip()
+                    return float(rate_clean)
+                except:
+                    return 999
+            
+            # 금리로 정렬 (다른 데이터 처리와 동일한 방식)
+            loan_list = []
+            for row in house_loan_df.data:
+                if row.get('상품명') and row.get('은행명'):
+                    min_rate = extract_min_rate(row.get('금리', '999'))
+                    loan_list.append({
+                        '은행명': row.get('은행명', ''),
+                        '상품명': row.get('상품명', ''),
+                        '금리': row.get('금리', ''),
+                        '대출한도': row.get('대출한도', ''),
+                        '최소금리': min_rate
+                    })
+            
+            # 낮은 금리 순으로 정렬하여 상위 6개
+            sorted_loans = sorted(loan_list, key=lambda x: x['최소금리'])[:6]
+            
+            print(f"정렬된 대출 상품: {len(sorted_loans)}개")
+            
+            for loan in sorted_loans:
+                # 대출한도 처리
+                limit_str = str(loan['대출한도'])
+                
+                def extract_limit_amount(limit_str):
+                    try:
+                        if '억' in limit_str:
+                            numbers = re.findall(r'(\d+(?:\.\d+)?)', limit_str)
+                            if numbers:
+                                return int(float(numbers[0]) * 10000)
+                        elif '만' in limit_str:
+                            numbers = re.findall(r'(\d+)', limit_str)
+                            if numbers:
+                                return int(numbers[0])
+                        elif '제한없음' in limit_str or '감정가' in limit_str:
+                            return 999999
+                        else:
+                            return 50000
+                    except:
+                        return 50000
+                
+                max_limit = extract_limit_amount(limit_str)
+                
+                # 실제 대출 가능 금액 계산
+                if price != '정보없음' and isinstance(price, int):
+                    loan_limit = min(int(price * 0.8), max_limit)
+                else:
+                    loan_limit = max_limit
+                
                 product_list.append({
-                    '상품명': row.get('상품명', f'상품{i+1}'),
-                    '금융회사명': row.get('은행명', '은행'),
-                    '금리': row.get('금리', '3.5%'),
-                    '대출한도(만원)': 50000,
-                    '상품타입': '일반'
+                    '상품명': loan['상품명'],
+                    '금융회사명': loan['은행명'],
+                    '금리': loan['금리'],
+                    '대출한도(만원)': loan_limit if loan_limit != 999999 else '제한없음',
+                    '상품타입': '정부지원' if '정부' in loan['은행명'] else '일반'
                 })
+        
+        print(f"최종 상품 개수: {len(product_list)}")
         
         return jsonify({
             'price': price,
@@ -1336,31 +1390,10 @@ def region_data():
         })
         
     except Exception as e:
-        print(f"전체 오류: {e}")
+        print(f"지역 데이터 오류: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'price': '정보없음', 'products': []})
-        
-        print(f"최종 상품 개수: {len(product_list)}")
-        
-        return jsonify({
-            'price': price,
-            'products': product_list,
-            'debug': {
-                'house_data_count': len(house_df.data) if house_df and not house_df.empty else 0,
-                'loan_data_count': len(loan_df.data) if loan_df and not loan_df.empty else 0
-            }
-        })
-        
-    except Exception as e:
-        print(f"전체 오류: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'price': '정보없음', 
-            'products': [],
-            'error': str(e)
-        })
 
 @app.route('/plus/region')
 def plus_region_map():
