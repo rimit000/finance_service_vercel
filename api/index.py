@@ -726,14 +726,47 @@ if not terms_df.empty:
 
 
 # 자동차 데이터 로드 후 BOM 정리
+# 자동차 가격 데이터 로드 부분을 다음과 같이 수정
 try:
-    car_df = pd.read_csv(os.path.join('naver_car_prices.csv'), encoding='utf-8-sig')
+    import os
     
-    # BOM 문자 제거
-    clean_columns(car_df)
+    # 여러 경로 시도
+    possible_paths = [
+        'naver_car_prices.csv',
+        os.path.join('naver_car_prices.csv'),
+        os.path.join(os.path.dirname(__file__), 'naver_car_prices.csv'),
+        os.path.join(os.path.dirname(__file__), '..', 'naver_car_prices.csv')
+    ]
     
-    print("✅ 자동차 가격 데이터 로드 성공")
-    print(f"정리된 컬럼: {car_df.columns}")
+    car_df = pd.DataFrame()  # 기본값
+    
+    for path in possible_paths:
+        try:
+            if os.path.exists(path):
+                print(f"시도하는 경로: {path}")
+                car_df = pd.read_csv(path, encoding='utf-8-sig')
+                
+                # BOM 문자 제거
+                if not car_df.empty:
+                    for row in car_df.data:
+                        if '\ufeff차종' in row:
+                            row['차종'] = row.pop('\ufeff차종')
+                        if '\ufeff모델명' in row:
+                            row['모델명'] = row.pop('\ufeff모델명')
+                        if '\ufeff평균가' in row:
+                            row['평균가'] = row.pop('\ufeff평균가')
+                
+                print(f"✅ 자동차 가격 데이터 로드 성공: {path}")
+                print(f"데이터 개수: {len(car_df.data)}")
+                print(f"컬럼: {car_df.columns}")
+                break
+        except Exception as e:
+            print(f"❌ 경로 {path} 실패: {e}")
+            continue
+    
+    if car_df.empty:
+        print("❌ 모든 경로에서 자동차 데이터 로드 실패")
+        
 except Exception as e:
     print(f"❌ 자동차 가격 데이터 로드 실패: {e}")
     car_df = pd.DataFrame()
