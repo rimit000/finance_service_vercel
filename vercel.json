@@ -5,9 +5,7 @@
       "src": "api/index.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": ["*.csv", "**/*.csv"],
-        "maxLambdaSize": "50mb",
-        "memory": 1024
+        "includeFiles": ["*.csv", "**/*.csv"]
       }
     }
   ],
@@ -16,8 +14,5 @@
       "src": "/(.*)",
       "dest": "/api/index.py"
     }
-  ],
-  "env": {
-    "HF_API_TOKEN": "@hf_api_token"
-  }
+  ]
 }
