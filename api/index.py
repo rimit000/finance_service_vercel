@@ -2012,10 +2012,10 @@ def calculate_interest_with_tax(principal, rate, months, is_savings=True):
     """이자 계산 및 세금 적용 함수"""
     try:
         monthly_rate = rate / 100 / 12
-        total_principal = principal * months  # 총 납입액
         
         if is_savings:
             # 적금: 매월 납입
+            total_principal = principal * months  # 총 납입액
             if monthly_rate == 0:
                 total_amount = total_principal
             else:
@@ -2023,7 +2023,8 @@ def calculate_interest_with_tax(principal, rate, months, is_savings=True):
                 total_amount = principal * (((1 + monthly_rate) ** months - 1) / monthly_rate) * (1 + monthly_rate)
         else:
             # 예금: 일시납입
-            total_amount = total_principal * (1 + monthly_rate) ** months
+            total_principal = principal  # 일시납입액
+            total_amount = principal * (1 + monthly_rate) ** months
         
         # 세전 이자 계산
         gross_interest = total_amount - total_principal
@@ -2143,7 +2144,8 @@ def build_result(df, mode, bank_name, product_name, manual_rate, amount, months)
                 rate = safe_float_conversion(product_data.get('기본금리'))
             
             # 상품 타입 판단
-            is_savings = request.form.get('product_type', 'savings') == 'savings'
+            product_type = request.form.get('product_type', 'savings')
+            is_savings = product_type == 'savings'
             calc_result = calculate_interest_with_tax(amount, rate, months, is_savings)
             
             return {
