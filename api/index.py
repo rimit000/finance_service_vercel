@@ -23,6 +23,23 @@ HF_API_URL = "https://api-inference.huggingface.co/models/soochang2/fin_chat"
 def query_huggingface_api(text, max_length=100):
     """허깅페이스 Inference API를 사용하여 응답 생성"""
     
+    text_lower = text.lower()
+    
+    # 금융 관련 키워드 기반 응답
+    if any(keyword in text_lower for keyword in ['예금', '적금', '금리']):
+        return "예금과 적금 상품은 상단 메뉴에서 비교해보실 수 있어요! 💰"
+    elif any(keyword in text_lower for keyword in ['대출', '햇살론', '새희망홀씨']):
+        return "대출 상품 정보는 대출 메뉴에서 확인하실 수 있습니다. 신중한 대출 이용 부탁드려요! 🏦"
+    elif any(keyword in text_lower for keyword in ['계산기', '비교', '계산']):
+        return "모아플러스 > 한눈에 비교하기 쉬운 상품에서 금리 계산과 상품 비교가 가능해요! 📊"
+    elif any(keyword in text_lower for keyword in ['여행', '저축', '목표']):
+        return "모아플러스 > 당신의 미래를 모으는 시간에서 여행 저축 계획을 세워보세요! ✈️"
+    elif any(keyword in text_lower for keyword in ['안녕', '안녕하세요', 'hi', 'hello']):
+        return "안녕하세요! 저는 모아플러스의 금융 도우미 모니입니다. 금융 상품이나 서비스에 대해 궁금한 점이 있으시면 언제든 물어보세요! 😊"
+    elif any(keyword in text_lower for keyword in ['도움말', '사용법', '어떻게']):
+        return "저는 예금, 적금, 대출 상품 정보와 금융 계산기 사용법을 안내해드릴 수 있어요. 구체적으로 무엇이 궁금하신가요? 🤔"
+    else:
+        return f"'{text}'에 대한 정보를 찾고 계시는군요! 상단 메뉴나 모아플러스에서 관련 정보를 확인해보세요. 더 구체적인 질문을 해주시면 더 도움을 드릴 수 있어요! 😄" 
     if not HF_API_TOKEN:
         return "허깅페이스 API 토큰이 설정되지 않았습니다."
     
