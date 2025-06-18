@@ -596,11 +596,30 @@
     let allProducts        = [];
 
 
-    // 세전→세후 계산
+    // 세전→세후 계산 (예금과 적금 구분)
     function calculateAfterTax(amount, rate, months = 12) {
-      let grossInterest = amount * (rate / 100) * (months / 12);
-      let tax           = grossInterest * 0.154;
-      let afterTax      = amount + (grossInterest - tax);
+      let grossInterest, principal, afterTax;
+      
+      // 적금인 경우
+      if ("{{ product_type }}" === "적금") {
+        // 월 납입금 × 기간 = 총 납입원금
+        principal = amount * months;
+        // 적금 이자 계산 공식: 월 납입금 × 기간 × (기간+1) / 2 × 연이율 / 12
+        grossInterest = amount * months * (months + 1) / 2 * (rate / 100) / 12;
+      } 
+      // 예금인 경우
+      else {
+        principal = amount;
+        // 예금 이자 계산: 원금 × 연이율 × (기간/12)
+        grossInterest = amount * (rate / 100) * (months / 12);
+      }
+      
+      // 세금 계산 (이자소득세 15.4%)
+      let tax = grossInterest * 0.154;
+      
+      // 세후 수령액 = 원금 + (총 이자 - 세금)
+      afterTax = principal + (grossInterest - tax);
+      
       return Math.round(afterTax).toLocaleString("ko-KR") + "원";
     }
 
