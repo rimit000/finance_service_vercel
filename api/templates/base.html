@@ -292,68 +292,218 @@
     html {
         scroll-behavior: smooth;
     }
-    #chatbot-button {
+    /* 챗봇 위젯 스타일 */
+/* 챗봇 위젯 스타일 */
+.chatbot-widget {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 100px;
-  height: 100px;
-  cursor: pointer;
-  z-index: 999;
-  }
-  #chatbot-button img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
 
+#chatbot-button {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00bfa5 0%, #00c4a8 100%);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+#chatbot-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 25px rgba(0,0,0,0.2);
+}
+
+#chatbot-button img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+#chatbot-box {
+  position: absolute;
+  bottom: 90px;
+  right: 0;
+  width: 350px;
+  height: 500px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#chatbot-box.open {
+  display: flex;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#chatbot-header {
+  background: linear-gradient(135deg, #00bfa5 0%, #00c4a8 100%);
+  color: white;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+
+.close-btn:hover {
+  opacity: 0.8;
+}
+
+#chatbot-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background: #fafafa;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.message {
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.message.bot {
+  align-items: flex-start;
+}
+
+.message.user {
+  align-items: flex-end;
+}
+
+.message-bubble {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.message.bot .message-bubble {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-bottom-left-radius: 4px;
+}
+
+.message.user .message-bubble {
+  background: linear-gradient(135deg, #00bfa5 0%, #00c4a8 100%);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+#chatbot-input-area {
+  padding: 16px 20px;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  gap: 8px;
+}
+
+#chatbot-input {
+  flex: 1;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 10px 16px;
+  font-size: 14px;
+  outline: none;
+  background: #f8f8f8;
+  transition: all 0.2s ease;
+}
+
+#chatbot-input:focus {
+  border-color: #00bfa5;
+  background: white;
+}
+
+.send-btn {
+  background: linear-gradient(135deg, #00bfa5 0%, #00c4a8 100%);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: opacity 0.2s ease;
+}
+
+.send-btn:hover {
+  opacity: 0.9;
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 모바일 대응 */
+@media (max-width: 480px) {
   #chatbot-box {
-    display: none;
-    flex-direction: column;
-    position: fixed;
-    bottom: 80px;
-    right: 30px;
     width: 320px;
-    height: 420px;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-    z-index: 999;
-    overflow: hidden;
+    height: 450px;
+    bottom: 70px;
+    right: -10px;
   }
-  #chatbot-header {
-    background: #00c4a8;
-    color: white;
-    padding: 10px;
-    font-weight: bold;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  
+  .chatbot-widget {
+    bottom: 15px;
+    right: 15px;
   }
-  #chatbot-messages {
-    flex-grow: 1;
-    padding: 10px;
-    overflow-y: auto;
-    font-size: 14px;
+  
+  #chatbot-button {
+    width: 70px;
+    height: 70px;
   }
-  #chatbot-input-area {
-    display: flex;
-    border-top: 1px solid #eee;
+  
+  #chatbot-button img {
+    width: 40px;
+    height: 40px;
   }
-  #chatbot-input {
-    flex: 1;
-    padding: 8px;
-    border: none;
-    outline: none;
-  }
-  #chatbot-input-area button {
-    padding: 8px 12px;
-    background: #00c4a8;
-    color: white;
-    border: none;
-    cursor: pointer;
-  }
+}
 
   </style>
 </head>
@@ -474,21 +624,24 @@
     </div>
   </div>
 </footer>
-<!-- 💬 챗봇 말풍선 버튼 -->
-<div id="chatbot-button" onclick="toggleChatbot()">
-  <img src="{{ url_for('static', filename='img/chatbot.png') }}" alt="챗봇" />
-</div>
-
-<!-- 💬 챗봇 대화창 -->
-<div id="chatbot-box">
-  <div id="chatbot-header">
-    🌱 모아챗봇
-    <button onclick="toggleChatbot()">✖</button>
-  </div>
-  <div id="chatbot-messages"></div>
-  <div id="chatbot-input-area">
-    <input type="text" id="chatbot-input" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter') sendChat()" />
-    <button onclick="sendChat()">전송</button>
+<!-- 💬 챗봇 위젯 -->
+<div class="chatbot-widget">
+  <button id="chatbot-button" onclick="toggleChatbot()">
+    <img src="{{ url_for('static', filename='img/chatbot.png') }}" alt="챗봇" />
+  </button>
+  
+  <div id="chatbot-box">
+    <div id="chatbot-header">
+      🌱 모아챗봇
+      <button class="close-btn" onclick="toggleChatbot()">×</button>
+    </div>
+    
+    <div id="chatbot-messages"></div>
+    
+    <div id="chatbot-input-area">
+      <input type="text" id="chatbot-input" placeholder="메시지를 입력하세요..." onkeydown="if(event.key==='Enter') sendChat()" />
+      <button class="send-btn" onclick="sendChat()">→</button>
+    </div>
   </div>
 </div>
 <!-- ---------- 스크립트 ---------- -->
@@ -535,13 +688,38 @@ function toggleChatbot() {
   const box = document.getElementById("chatbot-box");
   const messages = document.getElementById("chatbot-messages");
 
-  if (box.style.display === "flex") {
-    box.style.display = "none";
+  if (box.classList.contains("open")) {
+    box.classList.remove("open");
     messages.innerHTML = "";  
   } else {
-    box.style.display = "flex";
-    messages.innerHTML = `<div><strong>🤖</strong> 반가워요! 저는 똑똑한 금융 친구, 모니예요  궁금한 건 뭐든 물어보세요! </div>`; 
+    box.classList.add("open");
+    messages.innerHTML = `<div class="message bot"><div class="message-bubble">안녕하세요! 저는 모아플러스의 금융 도우미 모니입니다. 무엇을 도와드릴까요? 😊</div></div>`; 
   }
+}
+
+async function sendChat() {
+  const input = document.getElementById("chatbot-input");
+  const message = input.value.trim();
+  if (!message) return;
+
+  const messages = document.getElementById("chatbot-messages");
+  
+  // 사용자 메시지 추가
+  messages.innerHTML += `<div class="message user"><div class="message-bubble">${message}</div></div>`;
+  input.value = "";
+
+  // API 호출
+  const res = await fetch("/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: message })
+  });
+
+  const data = await res.json();
+  
+  // 봇 응답 추가
+  messages.innerHTML += `<div class="message bot"><div class="message-bubble">${data.response}</div></div>`;
+  messages.scrollTop = messages.scrollHeight;
 }
 
 async function sendChat() {
