@@ -1088,7 +1088,7 @@ function initializeAllForms() {
   });
 }
 
-// 폼 제출 처리
+// 기존 폼 제출 처리 다음에 추가
 document.getElementById('compare-form').addEventListener('submit', function(e) {
   // 현재 선택된 상품 타입 확인
   const currentType = document.querySelector('#type-toggle .btn-type.active').dataset.type;
@@ -1096,22 +1096,165 @@ document.getElementById('compare-form').addEventListener('submit', function(e) {
   // hidden input으로 상품 타입 전달
   document.getElementById('product_type').value = currentType;
   
-  // 예금의 경우 금액 단위 조정 (선택사항)
+  // 폼 제출 전 현재 상태 저장
+  saveFormState();
+  
+  // 스크롤 위치 저장
+  sessionStorage.setItem('scrollPosition', window.scrollY);
+  
   if (currentType === 'deposit') {
     const amountInput = document.getElementById('amount');
     const currentAmount = parseInt(amountInput.value);
-    // 예금은 보통 더 큰 단위이므로 그대로 유지
     console.log('예금 선택됨, 금액:', currentAmount);
   }
 });
 
-// 페이지 로드 시 초기 설정
+// 폼 상태 저장 함수
+function saveFormState() {
+  const formData = {
+    productType: document.querySelector('#type-toggle .btn-type.active').dataset.type,
+    leftMode: document.querySelector('input[name="mode_left"]').value,
+    rightMode: document.querySelector('input[name="mode_right"]').value,
+    leftTier: document.querySelector('input[name="tier_left"]').value,
+    rightTier: document.querySelector('input[name="tier_right"]').value,
+    leftBank: document.querySelector('input[name="bank_left"]').value,
+    rightBank: document.querySelector('input[name="bank_right"]').value,
+    leftProduct: document.querySelector('input[name="product_left"]').value,
+    rightProduct: document.querySelector('input[name="product_right"]').value,
+    leftRate: document.querySelector('input[name="rate_left"]').value,
+    rightRate: document.querySelector('input[name="rate_right"]').value,
+    amount: document.getElementById('amount').value,
+    months: document.getElementById('months').value
+  };
+  
+  sessionStorage.setItem('compareFormState', JSON.stringify(formData));
+}
+
+// 폼 상태 복원 함수
+function restoreFormState() {
+  const savedState = sessionStorage.getItem('compareFormState');
+  if (!savedState) return;
+  
+  try {
+    const formData = JSON.parse(savedState);
+    
+    // 상품 타입 복원
+    document.querySelectorAll('#type-toggle .btn-type').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === formData.productType);
+    });
+    document.getElementById('product_type').value = formData.productType;
+    updateLabels(formData.productType);
+    
+    // 각 사이드별 상태 복원
+    ['left', 'right'].forEach(side => {
+      const mode = formData[`${side}Mode`];
+      const tier = formData[`${side}Tier`];
+      const bank = formData[`${side}Bank`];
+      const product = formData[`${side}Product`];
+      const rate = formData[`${side}Rate`];
+      
+      // Hidden inputs 설정
+      document.querySelector(`input[name="mode_${side}"]`).value = mode;
+      document.querySelector(`input[name="tier_${side}"]`).value = tier;
+      document.querySelector(`input[name="bank_${side}"]`).value = bank;
+      document.querySelector(`input[name="product_${side}"]`).value = product;
+      
+      // 모드 버튼 상태 복원
+      const entryToggle = document.querySelector(`.entry-toggle[data-side="${side}"]`);
+      entryToggle.querySelectorAll('.btn-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      
+      const wrapper = entryToggle.closest('.button-group-wrapper');
+      const manualBox = wrapper.querySelector('.manual-rate-box');
+      const bankSelect = wrapper.querySelector('.bank-select');
+      const productSelect = wrapper.querySelector('.product-select');
+      
+      if (mode === 'manual') {
+        manualBox.classList.remove('hidden');
+        manualBox.classList.add('visible');
+        bankSelect.style.display = 'none';
+        productSelect.style.display = 'none';
+        
+        // 수동 입력 금리 복원
+        const rateInput = wrapper.querySelector('input[name="rate_' + side + '"]');
+        if (rateInput) rateInput.value = rate;
+      } else {
+        manualBox.classList.remove('visible');
+        manualBox.classList.add('hidden');
+        bankSelect.style.display = 'block';
+        
+        // 티어 탭 복원
+        bankSelect.querySelectorAll('.dropdown-tabs button').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.type === tier);
+        });
+        
+        // 은행 목록 렌더링 및 선택 복원
+        renderBankList(bankSelect, tier);
+        if (bank) {
+          setTimeout(() => {
+            const bankItems = bankSelect.querySelectorAll('.bank-list li');
+            bankItems.forEach(item => {
+              if (item.textContent === bank) {
+                item.classList.add('selected');
+                item.click();
+                
+                // 상품 선택 복원
+                if (product) {
+                  setTimeout(() => {
+                    const productItems = productSelect.querySelectorAll('.product-list li');
+                    productItems.forEach(pItem => {
+                      if (pItem.textContent === product) {
+                        pItem.classList.add('selected');
+                      }
+                    });
+                  }, 100);
+                }
+              }
+            });
+          }, 100);
+        }
+      }
+    });
+    
+    // 계산 조건 복원
+    if (formData.amount) document.getElementById('amount').value = formData.amount;
+    if (formData.months) document.getElementById('months').value = formData.months;
+    
+  } catch (error) {
+    console.error('폼 상태 복원 실패:', error);
+  }
+}
+
+// 스크롤 위치 복원 함수
+function restoreScrollPosition() {
+  const savedPosition = sessionStorage.getItem('scrollPosition');
+  if (savedPosition) {
+    setTimeout(() => {
+      window.scrollTo({
+        top: parseInt(savedPosition),
+        behavior: 'smooth'
+      });
+      // 복원 후 저장된 데이터 삭제
+      sessionStorage.removeItem('scrollPosition');
+    }, 100);
+  }
+}
+
+// DOMContentLoaded 이벤트 수정
 document.addEventListener('DOMContentLoaded', () => {
   const currentType = document.querySelector('#type-toggle .btn-type.active').dataset.type;
   updateLabels(currentType);
-  initializeAllForms();
+  
+  // 결과가 있으면 상태 복원, 없으면 초기화
+  const hasResults = document.querySelector('.result-section[style*="block"]');
+  if (hasResults) {
+    restoreFormState();
+    restoreScrollPosition();
+  } else {
+    initializeAllForms();
+  }
 });
-
 </script>
 
 {% endblock %}
