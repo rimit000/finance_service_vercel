@@ -460,37 +460,11 @@
       font-weight: 600;
       cursor: pointer;
       width: 100%;
-      transition: all 0.3s ease;
-      position: relative;
+      transition: background-color 0.2s;
     }
 
     .compare-button:hover {
       background-color: #00a08c;
-    }
-
-    /* 버튼 로딩 상태 */
-    .compare-button:disabled {
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    .compare-button:disabled::after {
-      content: '';
-      position: absolute;
-      right: 15px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top: 2px solid white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: translateY(-50%) rotate(0deg); }
-      100% { transform: translateY(-50%) rotate(360deg); }
     }
 
     /* 결과 표시 */
@@ -513,7 +487,6 @@
       padding: 25px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       position: relative;
-      transition: all 0.3s ease;
     }
 
     .result-card.winner {
@@ -644,29 +617,6 @@
       font-weight: 600;
     }
 
-    /* 에러 메시지 애니메이션 */
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes slideOut {
-      from {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      to {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-    }
-
   </style>
 
 <div class="container mt-1 mb-5">
@@ -687,7 +637,7 @@
         <button type="button" class="btn-type active" data-type="deposit">예금</button>
         <button type="button" class="btn-type" data-type="savings">적금</button>
       </div>
-      <input type="hidden" name="product_type" id="product_type" value="deposit">
+      <input type="hidden" name="product_type" id="product_type" value="savings">
 
       <div class="form-section">
         <!-- 첫 번째 상품 -->
@@ -793,14 +743,14 @@
 	<div class="calculation-section">
 	<div class="calculation-inputs">
 		<div>
-		<label for="amount" id="amount-label">총 예금액 
-			<input type="number" id="amount" name="amount" value="10000000" min="100000" step="100000" required>
+		<label for="amount" id="amount-label">월 적금액 
+			<input type="number" id="amount" name="amount" value="100000" min="1000" step="1000" required>
 			&nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;
 		</label>
 		</div>
 		<div>
-		<label for="months" id="months-label">예금 기간 
-			<input type="number" id="months" name="months" value="12" min="1" max="60" required>
+		<label for="months" id="months-label">납입 기간 
+			<input type="number" id="months" name="months" value="12" min="1" max="120" required>
 			개월
 		</label>
 		</div>
@@ -1015,60 +965,21 @@ function renderProductListByBank(wrapper, bankName) {
   updateHiddenInput(`product_${side}`, '');
 }
 
+// === 이벤트 리스너 ===
+
 // 라벨 업데이트 함수
 function updateLabels(productType) {
   const amountLabel = document.getElementById('amount-label');
   const monthsLabel = document.getElementById('months-label');
   
   if (productType === 'deposit') {
-    amountLabel.innerHTML = '총 예금액 <input type="number" id="amount" name="amount" value="10000000" min="100000" step="100000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
-    monthsLabel.innerHTML = '예금 기간 <input type="number" id="months" name="months" value="12" min="1" max="60" required> 개월';
+    amountLabel.innerHTML = '총 예금액 <input type="number" id="amount" name="amount" value="1000000" min="10000" step="10000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
+    monthsLabel.innerHTML = '예금 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
   } else {
-    amountLabel.innerHTML = '월 적금액 <input type="number" id="amount" name="amount" value="500000" min="10000" step="10000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
-    monthsLabel.innerHTML = '납입 기간 <input type="number" id="months" name="months" value="24" min="6" max="60" required> 개월';
+    amountLabel.innerHTML = '월 적금액 <input type="number" id="amount" name="amount" value="100000" min="1000" step="1000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
+    monthsLabel.innerHTML = '납입 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
   }
-  
-  // product_type hidden input도 함께 업데이트
-  document.getElementById('product_type').value = productType;
 }
-
-// 오류 메시지 표시 함수
-function showErrorMessage(message) {
-  // 기존 오류 메시지 제거
-  const existingError = document.querySelector('.error-message');
-  if (existingError) {
-    existingError.remove();
-  }
-  
-  // 새 오류 메시지 생성
-  const errorDiv = document.createElement('div');
-  errorDiv.className = 'error-message';
-  errorDiv.style.cssText = `
-    background-color: #fee;
-    border: 1px solid #fcc;
-    color: #c33;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 20px 0;
-    text-align: center;
-    animation: slideIn 0.3s ease;
-  `;
-  errorDiv.textContent = message;
-  
-  // 계산 섹션 다음에 추가
-  const calculationSection = document.querySelector('.calculation-section');
-  calculationSection.parentNode.insertBefore(errorDiv, calculationSection.nextSibling);
-  
-  // 3초 후 자동 제거
-  setTimeout(() => {
-    if (errorDiv.parentNode) {
-      errorDiv.style.animation = 'slideOut 0.3s ease';
-      setTimeout(() => errorDiv.remove(), 300);
-    }
-  }, 3000);
-}
-
-// === 이벤트 리스너 ===
 
 // 예금/적금 타입 변경
 typeButtons.forEach(btn => {
@@ -1138,6 +1049,8 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// 상품 드롭다운 토글 (삭제됨 - 은행 선택과 동일한 스타일로 변경)
+
 // 폼 초기화 함수
 function initializeAllForms() {
   // 모든 사이드에 대해 초기화
@@ -1175,89 +1088,171 @@ function initializeAllForms() {
   });
 }
 
-// AJAX 폼 제출 처리 - 디버깅 버전
-document.getElementById('compare-form').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  
-  console.log('폼 제출 시작');
-  
+// 기존 폼 제출 처리 다음에 추가
+document.getElementById('compare-form').addEventListener('submit', function(e) {
+  // 현재 선택된 상품 타입 확인
   const currentType = document.querySelector('#type-toggle .btn-type.active').dataset.type;
+  
+  // hidden input으로 상품 타입 전달
   document.getElementById('product_type').value = currentType;
   
-  const formData = new FormData(this);
+  // 폼 제출 전 현재 상태 저장
+  saveFormState();
   
-  // FormData 내용 확인
-  for (let pair of formData.entries()) {
-    console.log(pair[0] + ': ' + pair[1]);
-  }
+  // 스크롤 위치 저장
+  sessionStorage.setItem('scrollPosition', window.scrollY);
   
-  try {
-    const submitBtn = document.querySelector('.compare-button');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = '계산 중...';
-    submitBtn.disabled = true;
-    
-    console.log('AJAX 요청 전송 중...');
-    
-    const response = await fetch(window.location.href, {
-      method: 'POST',
-      body: formData
-    });
-    
-    console.log('응답 받음:', response.status, response.ok);
-    
-    if (response.ok) {
-      const html = await response.text();
-      console.log('HTML 길이:', html.length);
-      
-      // 간단한 테스트: 결과 섹션이 있는지 확인
-      if (html.includes('result-section')) {
-        console.log('결과 섹션 발견');
-        
-        // 일단 alert로 성공 메시지 표시
-        alert('계산 완료! (디버깅 모드)');
-        
-        // 실제 DOM 업데이트는 주석 처리
-        /*
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newResultSection = doc.querySelector('.result-section');
-        // ... 나머지 업데이트 코드
-        */
-      } else {
-        console.log('결과 섹션 없음');
-        alert('결과를 찾을 수 없습니다.');
-      }
-    }
-    
-    // 버튼 복원
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
-    
-  } catch (error) {
-    console.error('오류:', error);
-    alert('오류 발생: ' + error.message);
-    
-    // 버튼 복원
-    const submitBtn = document.querySelector('.compare-button');
-    submitBtn.textContent = '비교하기';
-    submitBtn.disabled = false;
+  if (currentType === 'deposit') {
+    const amountInput = document.getElementById('amount');
+    const currentAmount = parseInt(amountInput.value);
+    console.log('예금 선택됨, 금액:', currentAmount);
   }
 });
 
-// DOMContentLoaded 이벤트 간소화
+// 폼 상태 저장 함수
+function saveFormState() {
+  const formData = {
+    productType: document.querySelector('#type-toggle .btn-type.active').dataset.type,
+    leftMode: document.querySelector('input[name="mode_left"]').value,
+    rightMode: document.querySelector('input[name="mode_right"]').value,
+    leftTier: document.querySelector('input[name="tier_left"]').value,
+    rightTier: document.querySelector('input[name="tier_right"]').value,
+    leftBank: document.querySelector('input[name="bank_left"]').value,
+    rightBank: document.querySelector('input[name="bank_right"]').value,
+    leftProduct: document.querySelector('input[name="product_left"]').value,
+    rightProduct: document.querySelector('input[name="product_right"]').value,
+    leftRate: document.querySelector('input[name="rate_left"]').value,
+    rightRate: document.querySelector('input[name="rate_right"]').value,
+    amount: document.getElementById('amount').value,
+    months: document.getElementById('months').value
+  };
+  
+  sessionStorage.setItem('compareFormState', JSON.stringify(formData));
+}
+
+// 폼 상태 복원 함수
+function restoreFormState() {
+  const savedState = sessionStorage.getItem('compareFormState');
+  if (!savedState) return;
+  
+  try {
+    const formData = JSON.parse(savedState);
+    
+    // 상품 타입 복원
+    document.querySelectorAll('#type-toggle .btn-type').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === formData.productType);
+    });
+    document.getElementById('product_type').value = formData.productType;
+    updateLabels(formData.productType);
+    
+    // 각 사이드별 상태 복원
+    ['left', 'right'].forEach(side => {
+      const mode = formData[`${side}Mode`];
+      const tier = formData[`${side}Tier`];
+      const bank = formData[`${side}Bank`];
+      const product = formData[`${side}Product`];
+      const rate = formData[`${side}Rate`];
+      
+      // Hidden inputs 설정
+      document.querySelector(`input[name="mode_${side}"]`).value = mode;
+      document.querySelector(`input[name="tier_${side}"]`).value = tier;
+      document.querySelector(`input[name="bank_${side}"]`).value = bank;
+      document.querySelector(`input[name="product_${side}"]`).value = product;
+      
+      // 모드 버튼 상태 복원
+      const entryToggle = document.querySelector(`.entry-toggle[data-side="${side}"]`);
+      entryToggle.querySelectorAll('.btn-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      
+      const wrapper = entryToggle.closest('.button-group-wrapper');
+      const manualBox = wrapper.querySelector('.manual-rate-box');
+      const bankSelect = wrapper.querySelector('.bank-select');
+      const productSelect = wrapper.querySelector('.product-select');
+      
+      if (mode === 'manual') {
+        manualBox.classList.remove('hidden');
+        manualBox.classList.add('visible');
+        bankSelect.style.display = 'none';
+        productSelect.style.display = 'none';
+        
+        // 수동 입력 금리 복원
+        const rateInput = wrapper.querySelector('input[name="rate_' + side + '"]');
+        if (rateInput) rateInput.value = rate;
+      } else {
+        manualBox.classList.remove('visible');
+        manualBox.classList.add('hidden');
+        bankSelect.style.display = 'block';
+        
+        // 티어 탭 복원
+        bankSelect.querySelectorAll('.dropdown-tabs button').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.type === tier);
+        });
+        
+        // 은행 목록 렌더링 및 선택 복원
+        renderBankList(bankSelect, tier);
+        if (bank) {
+          setTimeout(() => {
+            const bankItems = bankSelect.querySelectorAll('.bank-list li');
+            bankItems.forEach(item => {
+              if (item.textContent === bank) {
+                item.classList.add('selected');
+                item.click();
+                
+                // 상품 선택 복원
+                if (product) {
+                  setTimeout(() => {
+                    const productItems = productSelect.querySelectorAll('.product-list li');
+                    productItems.forEach(pItem => {
+                      if (pItem.textContent === product) {
+                        pItem.classList.add('selected');
+                      }
+                    });
+                  }, 100);
+                }
+              }
+            });
+          }, 100);
+        }
+      }
+    });
+    
+    // 계산 조건 복원
+    if (formData.amount) document.getElementById('amount').value = formData.amount;
+    if (formData.months) document.getElementById('months').value = formData.months;
+    
+  } catch (error) {
+    console.error('폼 상태 복원 실패:', error);
+  }
+}
+
+// 스크롤 위치 복원 함수
+function restoreScrollPosition() {
+  const savedPosition = sessionStorage.getItem('scrollPosition');
+  if (savedPosition) {
+    setTimeout(() => {
+      window.scrollTo({
+        top: parseInt(savedPosition),
+        behavior: 'smooth'
+      });
+      // 복원 후 저장된 데이터 삭제
+      sessionStorage.removeItem('scrollPosition');
+    }, 100);
+  }
+}
+
+// DOMContentLoaded 이벤트 수정
 document.addEventListener('DOMContentLoaded', () => {
   const currentType = document.querySelector('#type-toggle .btn-type.active').dataset.type;
   updateLabels(currentType);
-  initializeAllForms();
   
-  // 기존 결과가 있으면 애니메이션 효과 적용
-  const existingResults = document.querySelector('.result-section[style*="block"]');
-  if (existingResults) {
-    const resultCards = document.querySelectorAll('.result-card');
-    resultCards.forEach(card => {
-      card.style.transition = 'all 0.3s ease';
-    });
+  // 결과가 있으면 상태 복원, 없으면 초기화
+  const hasResults = document.querySelector('.result-section[style*="block"]');
+  if (hasResults) {
+    restoreFormState();
+    restoreScrollPosition();
+  } else {
+    initializeAllForms();
   }
 });
 </script>
