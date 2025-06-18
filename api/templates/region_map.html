@@ -3,6 +3,15 @@
 
 {% block content %}
 
+<!-- 디버깅: 브레드크럼 데이터 확인 -->
+<div style="background: red; color: white; padding: 10px;">
+  DEBUG: breadcrumb = {{ breadcrumb }}
+  <br>
+  breadcrumb 길이: {{ breadcrumb|length if breadcrumb else 'None' }}
+</div>
+
+
+
 <style>
   :root {
     --moa-green: #00C4A8;
