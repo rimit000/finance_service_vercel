@@ -2466,11 +2466,9 @@ def chat():
         if not user_message:
             return jsonify({'error': '메시지가 비어있습니다.'}), 400
         
-        # 허깅페이스 API를 통해 응답 생성
-        bot_response = query_huggingface_api(user_message)
-        
+        # 디버깅: 일단 간단한 응답 반환
         return jsonify({
-            'response': bot_response,
+            'response': f"메시지를 받았습니다: {user_message}",
             'status': 'success'
         })
         
@@ -2482,5 +2480,5 @@ def health_check():
     """헬스 체크 엔드포인트"""
     return jsonify({
         'status': 'healthy',
-        'api_status': 'connected' if HF_API_TOKEN else 'no_token'
+        'message': 'Flask app is running'
     })
