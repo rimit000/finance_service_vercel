@@ -15,6 +15,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
+
 # 허깅페이스 API 설정
 HF_API_TOKEN = os.getenv('HF_API_TOKEN')
 HF_API_URL = "https://api-inference.huggingface.co/models/soochang2/fin_chat"
