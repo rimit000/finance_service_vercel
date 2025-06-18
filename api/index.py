@@ -1254,39 +1254,55 @@ def plus_calculator():
     ]
     return render_template('calculator_home.html', breadcrumb=breadcrumb)
 
-# 기존 CSV 로드 부분 뒤에 추가
-try:
-    house_df = pd.read_csv(os.path.join('주택_시도별_보증금.csv'), encoding='utf-8-sig')
+def get_csv_path(filename):
+    """Vercel 환경에서 CSV 파일 경로를 올바르게 찾는 함수"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # BOM 문자 제거
-    for row in house_df.data:
-        if '\ufeff시도' in row:
-            row['시도'] = row.pop('\ufeff시도')
-        if '\ufeff가격' in row:
-            row['가격'] = row.pop('\ufeff가격')
+    possible_paths = [
+        os.path.join(current_dir, filename),
+        os.path.join(current_dir, '..', filename),
+        os.path.join(os.path.dirname(current_dir), filename),
+    ]
     
-    print("✅ 주택 시도별 보증금 데이터 로드 성공")
-except Exception as e:
-    print(f"❌ 주택 시도별 보증금 데이터 로드 실패: {e}")
-    house_df = pd.DataFrame()
+    for path in possible_paths:
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path):
+            print(f"✅ CSV 파일 찾음: {abs_path}")
+            return abs_path
+    
+    print(f"❌ CSV 파일을 찾을 수 없음: {filename}")
+    return None
+
+def load_csv_safely(filename):
+    """안전하게 CSV 파일을 로드하는 함수"""
+    csv_path = get_csv_path(filename)
+    if csv_path is None:
+        print(f"❌ {filename} 파일을 찾을 수 없습니다.")
+        return pd.DataFrame()
+    
+    try:
+        df = pd.read_csv(csv_path, encoding='utf-8-sig')
+        print(f"✅ {filename} 로드 성공: {len(df.data) if hasattr(df, 'data') else 0}개 행")
+        return df
+    except Exception as e:
+        print(f"❌ {filename} 로드 실패: {e}")
+        return pd.DataFrame()
 
 try:
-    house_loan_df = pd.read_csv(os.path.join('주택담보대출_정리본.csv'), encoding='utf-8-sig')
+    house_df = load_csv_safely('주택_시도별_보증금.csv')
+    house_loan_df = load_csv_safely('주택담보대출_정리본.csv')
     
     # BOM 문자 제거
-    for row in house_loan_df.data:
-        if '\ufeff은행명' in row:
-            row['은행명'] = row.pop('\ufeff은행명')
-        if '\ufeff상품명' in row:
-            row['상품명'] = row.pop('\ufeff상품명')
-        if '\ufeff금리' in row:
-            row['금리'] = row.pop('\ufeff금리')
-        if '\ufeff대출한도' in row:
-            row['대출한도'] = row.pop('\ufeff대출한도')
+    if not house_df.empty:
+        clean_columns(house_df)
     
-    print("✅ 주택담보대출 데이터 로드 성공")
+    if not house_loan_df.empty:
+        clean_columns(house_loan_df)
+    
+    print("✅ 주택 관련 CSV 파일 로드 완료")
 except Exception as e:
-    print(f"❌ 주택담보대출 데이터 로드 실패: {e}")
+    print(f"❌ 주택 CSV 파일 로드 중 전체 오류: {e}")
+    house_df = pd.DataFrame()
     house_loan_df = pd.DataFrame()
 
 # 하우스 모아
@@ -2335,21 +2351,31 @@ def guide_moa():
 
 # 디버깅용 라우트 추가
 @app.route('/debug')
-def debug_simple():
+def debug_csv():
+    """CSV 로딩 상태 디버그"""
     try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(current_dir)
+        
+        def list_files(directory):
+            try:
+                return [f for f in os.listdir(directory) if f.endswith('.csv')]
+            except:
+                return []
+        
         result = {
+            'current_dir': current_dir,
+            'parent_dir': parent_dir,
+            'current_dir_csv_files': list_files(current_dir),
+            'parent_dir_csv_files': list_files(parent_dir),
             'house_df_empty': house_df.empty if 'house_df' in globals() else 'not_defined',
             'house_loan_df_empty': house_loan_df.empty if 'house_loan_df' in globals() else 'not_defined'
         }
         
-        if 'house_df' in globals() and not house_df.empty:
+        if 'house_df' in globals() and not house_df.empty and house_df.data:
             result['house_sample'] = house_df.data[:2]
-            result['house_columns'] = house_df.columns
-            
-        if 'house_loan_df' in globals() and not house_loan_df.empty:
-            result['loan_sample'] = house_loan_df.data[:2]
-            result['loan_columns'] = house_loan_df.columns
             
         return jsonify(result)
+        
     except Exception as e:
         return jsonify({'error': str(e)})
