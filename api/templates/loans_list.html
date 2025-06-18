@@ -362,44 +362,167 @@
       cursor: not-allowed;
     }
 
-    /* 대출 유형 설명 테이블 스타일 */
-    .loan-type-explanation {
-      margin-top: 20px;
-      margin-bottom: 30px;
-    }
+/* 대출 유형 설명 테이블 스타일 - 통일된 정렬 */
+.loan-type-explanation {
+  margin-top: 20px;
+  margin-bottom: 30px;
+}
 
-    #loan-info-table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: transparent;
-    }
+#loan-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: transparent;
+  table-layout: fixed; /* 테이블 레이아웃 고정 */
+}
 
-    #loan-info-table td,
-    #loan-info-table th {
-      border: none;
-      padding: 10px;
-      text-align: center;
-      background-color: transparent;
-    }
+#loan-info-table td,
+#loan-info-table th {
+  border: none;
+  padding: 10px;
+  text-align: center;
+  background-color: transparent;
+}
 
-    .highlight-box {
-      display: inline-block;
-      width: 100px;
-      height: 40px;
-      line-height: 40px;
-      text-align: center;
-      border-radius: 10px;
-      background-color: #ffffff;
-      box-shadow: 4px 4px 8px #D6DEE2;
-      color: #5B9279;
-      font-weight: 600;
-      font-size: 16px;
-    }
+/* 공통 highlight-box 위치 설정 - 모든 테이블에 적용 */
+#loan-info-table .highlight-box {
+  display: inline-block;
+  width: 100px;
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  border-radius: 10px;
+  background-color: #ffffff;
+  box-shadow: 4px 4px 8px #D6DEE2;
+  color: #5B9279;
+  font-weight: 600;
+  font-size: 16px;
+}
 
-    .small-left {
-      font-size: 14px;
-      text-align: left;
-    }
+.small-left {
+  font-size: 14px;
+  text-align: left;
+}
+
+/* 비상금대출 테이블 (4열) */
+.loan-type-explanation .emergency-loan-table {
+  width: 100%;
+}
+.loan-type-explanation .emergency-loan-table td:nth-child(1),
+.loan-type-explanation .emergency-loan-table th:nth-child(1) {
+  width: 14%;
+}
+.loan-type-explanation .emergency-loan-table td:nth-child(2),
+.loan-type-explanation .emergency-loan-table th:nth-child(2) {
+  width: 36%;
+}
+.loan-type-explanation .emergency-loan-table td:nth-child(3),
+.loan-type-explanation .emergency-loan-table th:nth-child(3) {
+  width: 14%;
+}
+.loan-type-explanation .emergency-loan-table td:nth-child(4),
+.loan-type-explanation .emergency-loan-table th:nth-child(4) {
+  width: 36%;
+}
+
+/* 새희망홀씨 테이블 (6열) */
+.loan-type-explanation .hope-loan-table {
+  width: 100%;
+}
+.loan-type-explanation .hope-loan-table td:nth-child(1),
+.loan-type-explanation .hope-loan-table th:nth-child(1) {
+  width: 14%;
+}
+.loan-type-explanation .hope-loan-table td:nth-child(2),
+.loan-type-explanation .hope-loan-table th:nth-child(2) {
+  width: 18%;
+}
+.loan-type-explanation .hope-loan-table td:nth-child(3),
+.loan-type-explanation .hope-loan-table th:nth-child(3) {
+  width: 18%;
+}
+.loan-type-explanation .hope-loan-table td:nth-child(4),
+.loan-type-explanation .hope-loan-table th:nth-child(4) {
+  width: 14%;
+}
+.loan-type-explanation .hope-loan-table td:nth-child(5),
+.loan-type-explanation .hope-loan-table th:nth-child(5) {
+  width: 18%;
+}
+.loan-type-explanation .hope-loan-table td:nth-child(6),
+.loan-type-explanation .hope-loan-table th:nth-child(6) {
+  width: 18%;
+}
+
+/* 무직자대출 테이블 (4열) */
+.loan-type-explanation .unemployed-loan-table {
+  width: 100%;
+}
+.loan-type-explanation .unemployed-loan-table td:nth-child(1),
+.loan-type-explanation .unemployed-loan-table th:nth-child(1) {
+  width: 14%;
+}
+.loan-type-explanation .unemployed-loan-table td:nth-child(2),
+.loan-type-explanation .unemployed-loan-table th:nth-child(2) {
+  width: 36%;
+}
+.loan-type-explanation .unemployed-loan-table td:nth-child(3),
+.loan-type-explanation .unemployed-loan-table th:nth-child(3) {
+  width: 14%;
+}
+.loan-type-explanation .unemployed-loan-table td:nth-child(4),
+.loan-type-explanation .unemployed-loan-table th:nth-child(4) {
+  width: 36%;
+}
+
+/* 사잇돌 테이블 (6열) */
+.loan-type-explanation .saitdol-loan-table {
+  width: 100%;
+}
+.loan-type-explanation .saitdol-loan-table td:nth-child(1),
+.loan-type-explanation .saitdol-loan-table th:nth-child(1) {
+  width: 14%;
+}
+.loan-type-explanation .saitdol-loan-table td:nth-child(2),
+.loan-type-explanation .saitdol-loan-table th:nth-child(2) {
+  width: 18%;
+}
+.loan-type-explanation .saitdol-loan-table td:nth-child(3),
+.loan-type-explanation .saitdol-loan-table th:nth-child(3) {
+  width: 18%;
+}
+.loan-type-explanation .saitdol-loan-table td:nth-child(4),
+.loan-type-explanation .saitdol-loan-table th:nth-child(4) {
+  width: 14%;
+}
+.loan-type-explanation .saitdol-loan-table td:nth-child(5),
+.loan-type-explanation .saitdol-loan-table th:nth-child(5) {
+  width: 18%;
+}
+.loan-type-explanation .saitdol-loan-table td:nth-child(6),
+.loan-type-explanation .saitdol-loan-table th:nth-child(6) {
+  width: 18%;
+}
+
+/* 햇살론 테이블 (4열) */
+.loan-type-explanation .sunshine-loan-table {
+  width: 100%;
+}
+.loan-type-explanation .sunshine-loan-table td:nth-child(1),
+.loan-type-explanation .sunshine-loan-table th:nth-child(1) {
+  width: 14%;
+}
+.loan-type-explanation .sunshine-loan-table td:nth-child(2),
+.loan-type-explanation .sunshine-loan-table th:nth-child(2) {
+  width: 36%;
+}
+.loan-type-explanation .sunshine-loan-table td:nth-child(3),
+.loan-type-explanation .sunshine-loan-table th:nth-child(3) {
+  width: 14%;
+}
+.loan-type-explanation .sunshine-loan-table td:nth-child(4),
+.loan-type-explanation .sunshine-loan-table th:nth-child(4) {
+  width: 36%;
+}
   </style>
 
   <!-- body -->
@@ -450,25 +573,9 @@
     {% if selected_types and selected_types[0] != '전체' %}
       <div class="loan-type-explanation">
         {% if selected_types[0] == '비상금대출' %}
-          <table class="dataframe loan-table" id="loan-info-table">
-            <style>
-                  #loan-info-table td:nth-child(1),
-                  #loan-info-table th:nth-child(1) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(2),
-                  #loan-info-table th:nth-child(2) {
-                    width: 36%;
-                  }
-                  #loan-info-table td:nth-child(3),
-                  #loan-info-table th:nth-child(3) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(4),
-                  #loan-info-table th:nth-child(4) {
-                    width: 36%;
-                  }
-            </style>
+          <table class="dataframe loan-table emergency-loan-table" id="loan-info-table">
+
+
             <thead>
               <tr>
                 <th><div class="highlight-box">소액 비상금</div></th>
@@ -494,33 +601,9 @@
           </table>
 
         {% elif selected_types[0] == '새희망홀씨' %}
-          <table class="dataframe loan-table" id="loan-info-table">
-            <style>
-                  #loan-info-table td:nth-child(1),
-                  #loan-info-table th:nth-child(1) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(2),
-                  #loan-info-table th:nth-child(2) {
-                    width: 18%;
-                  }
-                  #loan-info-table td:nth-child(3),
-                  #loan-info-table th:nth-child(3) {
-                    width: 18%;
-                  }
-                  #loan-info-table td:nth-child(4),
-                  #loan-info-table th:nth-child(4) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(5),
-                  #loan-info-table th:nth-child(5) {
-                    width: 18%;
-                  }
-                  #loan-info-table td:nth-child(6),
-                  #loan-info-table th:nth-child(6) {
-                    width: 18%;
-                  }
-            </style>
+          <table class="dataframe loan-table hope-loan-table" id="loan-info-table">
+
+
             <thead>
               <tr>
                 <th><div class="highlight-box">새희망홀씨</div></th>
@@ -554,25 +637,9 @@
           </table>
 
         {% elif selected_types[0] == '무직자대출' %}
-          <table class="dataframe loan-table" id="loan-info-table">
-            <style>
-                  #loan-info-table td:nth-child(1),
-                  #loan-info-table th:nth-child(1) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(2),
-                  #loan-info-table th:nth-child(2) {
-                    width: 36%;
-                  }
-                  #loan-info-table td:nth-child(3),
-                  #loan-info-table th:nth-child(3) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(4),
-                  #loan-info-table th:nth-child(4) {
-                    width: 36%;
-                  }
-            </style>
+          <table class="dataframe loan-table unemployed-loan-table" id="loan-info-table">
+
+
             <thead>
               <tr>
                 <th><div class="highlight-box">무직자 대출</div></th>
@@ -598,33 +665,9 @@
           </table>
 
         {% elif selected_types[0] == '사잇돌' %}
-          <table class="dataframe loan-table" id="loan-info-table">
-            <style>
-                  #loan-info-table td:nth-child(1),
-                  #loan-info-table th:nth-child(1) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(2),
-                  #loan-info-table th:nth-child(2) {
-                    width: 18%;
-                  }
-                  #loan-info-table td:nth-child(3),
-                  #loan-info-table th:nth-child(3) {
-                    width: 18%;
-                  }
-                  #loan-info-table td:nth-child(4),
-                  #loan-info-table th:nth-child(4) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(5),
-                  #loan-info-table th:nth-child(5) {
-                    width: 18%;
-                  }
-                  #loan-info-table td:nth-child(6),
-                  #loan-info-table th:nth-child(6) {
-                    width: 18%;
-                  }
-            </style>
+          <table class="dataframe loan-table saitdol-loan-table" id="loan-info-table">
+
+
             <thead>
               <tr>
                 <th><div class="highlight-box">사잇돌 대출</div></th>
@@ -668,25 +711,8 @@
           </table>
 
         {% elif selected_types[0] == '햇살론' %}
-          <table class="dataframe loan-table" id="loan-info-table">
-            <style>
-                  #loan-info-table td:nth-child(1),
-                  #loan-info-table th:nth-child(1) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(2),
-                  #loan-info-table th:nth-child(2) {
-                    width: 36%;
-                  }
-                  #loan-info-table td:nth-child(3),
-                  #loan-info-table th:nth-child(3) {
-                    width: 14%;
-                  }
-                  #loan-info-table td:nth-child(4),
-                  #loan-info-table th:nth-child(4) {
-                    width: 36%;
-                  }
-            </style>
+          <table class="dataframe loan-table sunshine-loan-table" id="loan-info-table">
+
             <thead>
               <tr>
                 <th><div class="highlight-box">햇살론</div></th>
