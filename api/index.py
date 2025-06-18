@@ -21,48 +21,51 @@ HF_API_TOKEN = os.getenv('HF_API_TOKEN')
 HF_API_URL = "https://api-inference.huggingface.co/models/soochang2/fin_chat"
 
 def query_huggingface_api(text, max_length=100):
-    """허깅페이스 Inference API를 사용하여 응답 생성"""
-    
-    if not HF_API_TOKEN:
-        return "허깅페이스 API 토큰이 설정되지 않았습니다."
-    
-    headers = {
-        "Authorization": f"Bearer {HF_API_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "inputs": text,
-        "parameters": {
-            "max_new_tokens": max_length,
-            "temperature": 0.7,
-            "do_sample": True,
-            "return_full_text": False
-        }
-    }
-    
+    """허깅페이스 모델 직접 사용"""
     try:
-        response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=30)
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        import torch
         
-        # 디버깅: 상태 코드와 응답 내용 확인
-        if response.status_code == 200:
-            result = response.json()
-            if isinstance(result, list) and len(result) > 0:
-                return result[0].get('generated_text', '응답을 생성할 수 없습니다.')
-            else:
-                return f"API 응답: {str(result)}"
-        elif response.status_code == 503:
-            return "모델이 로딩 중입니다. 잠시 후 다시 시도해주세요."
-        else:
-            # 디버깅: 정확한 오류 상태 반환
-            return f"API 오류 {response.status_code}: {response.text[:200]}"
+        model_name = "soochang2/fin_chat"
+        
+        # 토크나이저와 모델 로드 (첫 번째 요청 시에만)
+        if not hasattr(query_huggingface_api, 'tokenizer'):
+            query_huggingface_api.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            query_huggingface_api.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                device_map="cpu"  # Vercel에서는 CPU만 사용 가능
+            )
             
-    except requests.exceptions.Timeout:
-        return "요청 시간이 초과되었습니다. 다시 시도해주세요."
-    except requests.exceptions.RequestException as e:
-        return f"네트워크 오류: {str(e)[:100]}"
+            # 패딩 토큰 설정
+            if query_huggingface_api.tokenizer.pad_token is None:
+                query_huggingface_api.tokenizer.pad_token = query_huggingface_api.tokenizer.eos_token
+        
+        # 입력 토크나이징
+        inputs = query_huggingface_api.tokenizer.encode(text, return_tensors="pt")
+        
+        # 응답 생성
+        with torch.no_grad():
+            outputs = query_huggingface_api.model.generate(
+                inputs,
+                max_length=len(inputs[0]) + max_length,
+                num_return_sequences=1,
+                temperature=0.7,
+                do_sample=True,
+                pad_token_id=query_huggingface_api.tokenizer.eos_token_id,
+                eos_token_id=query_huggingface_api.tokenizer.eos_token_id
+            )
+        
+        # 생성된 텍스트 디코딩
+        generated_text = query_huggingface_api.tokenizer.decode(
+            outputs[0][len(inputs[0]):], 
+            skip_special_tokens=True
+        )
+        
+        return generated_text.strip() if generated_text.strip() else "죄송합니다. 적절한 응답을 생성하지 못했습니다."
+        
     except Exception as e:
-        return f"예상치 못한 오류: {str(e)[:100]}"
+        return f"모델 로딩 중 오류가 발생했습니다: {str(e)[:100]}"
 
 # ============================================
 # CSV 처리 클래스 (pandas 대체)
