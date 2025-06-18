@@ -1088,6 +1088,23 @@ function initializeAllForms() {
   });
 }
 
+// 폼 제출 처리
+document.getElementById('compare-form').addEventListener('submit', function(e) {
+  // 현재 선택된 상품 타입 확인
+  const currentType = document.querySelector('#type-toggle .btn-type.active').dataset.type;
+  
+  // hidden input으로 상품 타입 전달
+  document.getElementById('product_type').value = currentType;
+  
+  // 예금의 경우 금액 단위 조정 (선택사항)
+  if (currentType === 'deposit') {
+    const amountInput = document.getElementById('amount');
+    const currentAmount = parseInt(amountInput.value);
+    // 예금은 보통 더 큰 단위이므로 그대로 유지
+    console.log('예금 선택됨, 금액:', currentAmount);
+  }
+});
+
 // 페이지 로드 시 초기 설정
 document.addEventListener('DOMContentLoaded', () => {
   const currentType = document.querySelector('#type-toggle .btn-type.active').dataset.type;
