@@ -802,7 +802,31 @@
       <!-- 페이지네이션 -->
       {% if total_pages > 1 %}
         <div id="pagination-container">
-        <!-- JavaScript로 동적 생성 -->
+          <!-- 이전 버튼 -->
+          {% if current_page > 1 %}
+            <a href="{{ url_for('loans_page', loanType=selected_types[0] if selected_types and selected_types|length > 0 else '전체', page=current_page-1, maxLimit=max_limit) }}" class="page-btn">이전</a>
+          {% else %}
+            <span class="page-btn disabled">이전</span>
+          {% endif %}
+
+          <!-- 페이지 번호들 -->
+          {% set start_page = ((current_page - 1) // 5) * 5 + 1 %}
+          {% set end_page = [start_page + 4, total_pages] | min %}
+          
+          {% for page_num in range(start_page, end_page + 1) %}
+            {% if page_num == current_page %}
+              <span class="page-btn active">{{ page_num }}</span>
+            {% else %}
+              <a href="{{ url_for('loans_page', loanType=selected_types[0] if selected_types and selected_types|length > 0 else '전체', page=page_num, maxLimit=max_limit) }}" class="page-btn">{{ page_num }}</a>
+            {% endif %}
+          {% endfor %}
+
+          <!-- 다음 버튼 -->
+          {% if current_page < total_pages %}
+            <a href="{{ url_for('loans_page', loanType=selected_types[0] if selected_types and selected_types|length > 0 else '전체', page=current_page+1, maxLimit=max_limit) }}" class="page-btn">다음</a>
+          {% else %}
+            <span class="page-btn disabled">다음</span>
+          {% endif %}
         </div>
       {% endif %}
       
@@ -820,416 +844,59 @@
   <!-- JavaScript -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    // 전역 변수
-    let currentPage = {{ current_page|default(1) }};
-    let currentLoanType = "{{ selected_types[0] if selected_types and selected_types|length > 0 else '전체' }}";
-    let currentMaxLimit = "{{ max_limit or '' }}";
-    let totalPages = {{ total_pages|default(1) }};
+  <script>
+    // 스크롤 위치 고정 변수 (페이지네이션용)
+    let currentScrollPosition = 0;
 
-    // 필터 적용 함수 - AJAX로 변경
+    // 필터 적용 함수
     function applyFilter(type) {
-      currentLoanType = type;
-      currentPage = 1; // 필터 변경시 1페이지로
-      loadProducts();
-      updateLoanTypeExplanation(type); // 설명 테이블 업데이트
-      
-      // 버튼 활성화 상태 업데이트
-      document.querySelectorAll('.loan-type-buttons .btn').forEach(btn => {
-        if (btn.textContent.trim() === type) {
-          btn.className = 'btn btn-success';
-        } else {
-          btn.className = 'btn btn-outline-success';
-        }
-      });
-    }
-
-    // 최대한도 입력 시 필터 적용 - AJAX로 변경
-    function applyMaxLimitFilter(value) {
-      currentMaxLimit = value;
-      currentPage = 1;
-      loadProducts();
-    }
-
-    // 페이지 변경 함수
-    function changePage(page) {
-      currentPage = page;
-      loadProducts();
-    }
-
-    // 상품 데이터 로드 함수
-    function loadProducts() {
-      // 로딩 표시
-      const tbody = document.getElementById('product-tbody');
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">로딩 중...</td></tr>';
-
-      // API 호출 파라미터 구성
-      let params = new URLSearchParams({
-        loanType: currentLoanType,
-        page: currentPage
-      });
-      
-      if (currentMaxLimit) {
-        params.append('maxLimit', currentMaxLimit);
-      }
-
-      // AJAX 요청
-      fetch(`/api/loans?${params.toString()}`)
-        .then(response => response.json())
-        .then(data => {
-          totalPages = data.total_pages;
-          renderProducts(data.products);
-          renderPagination();
-          updateURL(); // URL 업데이트 (뒤로가기 지원)
-        })
-        .catch(error => {
-          console.error('데이터 로드 실패:', error);
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">데이터를 불러오는데 실패했습니다.</td></tr>';
-        });
-    }
-
-    // 상품 테이블 렌더링
-    function renderProducts(products) {
-      const tbody = document.getElementById('product-tbody');
-      
-      if (!products || products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">조건에 맞는 상품이 없습니다.</td></tr>';
-        return;
-      }
-
-      let html = '';
-      products.forEach((product, index) => {
-        const rowIndex = ((currentPage - 1) * 15) + index + 1;
-        const collapseId = `collapseRow${index}`;
-        
-        html += `
-          <tr>
-            <td class="text-center">${rowIndex}</td>
-            <td>
-              <img src="${product.logo || ''}" class="bank-logo me-2" alt="로고"/>
-              ${product.금융회사명 || '정보 없음'}
-            </td>
-            <td>${product.상품명 || '정보 없음'}</td>
-            <td>${product.대출유형 || '정보 없음'}</td>
-            <td>${product.대출한도 || '정보 없음'}</td>
-            <td class="text-center">
-              <button class="btn-toggle" data-bs-target="#${collapseId}" aria-controls="${collapseId}" type="button">▼</button>
-            </td>
-          </tr>
-          <tr class="collapse" id="${collapseId}">
-            <td colspan="6">
-              <div class="bg-light p-3 rounded text-start">
-                <p><strong>▶ 대출금리:</strong> ${product.금리 || "정보 없음"}</p>
-                <p><strong>▶ 상환방법:</strong> ${product.상환방법 || "정보 없음"}</p>
-                <p><strong>▶ 가입대상:</strong> ${product.가입대상 || "정보 없음"}</p>
-                <p><strong>▶ 금융권:</strong> ${product.금융권 || "정보 없음"}</p>
-                <div class="text-end mt-2">
-                  <button class="btn btn-sm btn-secondary" onclick="bootstrap.Collapse.getOrCreateInstance(document.getElementById('${collapseId}')).hide()">닫기</button>
-                </div>
-              </div>
-            </td>
-          </tr>`;
-      });
-      
-      tbody.innerHTML = html;
-    }
-
-    // 페이지네이션 렌더링
-    function renderPagination() {
-      const container = document.getElementById('pagination-container');
-      if (!container) return;
-      
-      container.innerHTML = '';
-      if (totalPages <= 1) return;
-
-      // 이전 버튼
-      if (currentPage > 1) {
-        const prevBtn = document.createElement('a');
-        prevBtn.textContent = '이전';
-        prevBtn.className = 'page-btn';
-        prevBtn.href = '#';
-        prevBtn.onclick = (e) => {
-          e.preventDefault();
-          changePage(currentPage - 1);
-        };
-        container.appendChild(prevBtn);
-      } else {
-        const prevBtn = document.createElement('span');
-        prevBtn.textContent = '이전';
-        prevBtn.className = 'page-btn disabled';
-        container.appendChild(prevBtn);
-      }
-
-      // 페이지 번호들
-      const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
-      const endPage = Math.min(startPage + 4, totalPages);
-      
-      for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
-        if (pageNum === currentPage) {
-          const activeBtn = document.createElement('span');
-          activeBtn.textContent = pageNum;
-          activeBtn.className = 'page-btn active';
-          container.appendChild(activeBtn);
-        } else {
-          const pageBtn = document.createElement('a');
-          pageBtn.textContent = pageNum;
-          pageBtn.className = 'page-btn';
-          pageBtn.href = '#';
-          pageBtn.onclick = (e) => {
-            e.preventDefault();
-            changePage(pageNum);
-          };
-          container.appendChild(pageBtn);
-        }
-      }
-
-      // 다음 버튼
-      if (currentPage < totalPages) {
-        const nextBtn = document.createElement('a');
-        nextBtn.textContent = '다음';
-        nextBtn.className = 'page-btn';
-        nextBtn.href = '#';
-        nextBtn.onclick = (e) => {
-          e.preventDefault();
-          changePage(currentPage + 1);
-        };
-        container.appendChild(nextBtn);
-      } else {
-        const nextBtn = document.createElement('span');
-        nextBtn.textContent = '다음';
-        nextBtn.className = 'page-btn disabled';
-        container.appendChild(nextBtn);
-      }
-    }
-
-    // URL 업데이트 (뒤로가기 지원)
-    function updateURL() {
       const url = new URL(window.location.href);
-      url.searchParams.set('loanType', currentLoanType);
-      url.searchParams.set('page', currentPage);
-      
-      if (currentMaxLimit) {
-        url.searchParams.set('maxLimit', currentMaxLimit);
-      } else {
-        url.searchParams.delete('maxLimit');
-      }
-      
-      // pushState로 URL 변경 (페이지 새로고침 없음)
-      window.history.pushState({ 
-        loanType: currentLoanType, 
-        page: currentPage, 
-        maxLimit: currentMaxLimit 
-      }, '', url.toString());
+      url.searchParams.set('loanType', type);
+      url.searchParams.delete('page'); // 필터 변경시 1페이지로
+      window.location.href = url.toString();
     }
 
-    // 대출 유형별 설명 테이블 업데이트 함수
-    function updateLoanTypeExplanation(loanType) {
-      const explanationDiv = document.querySelector('.loan-type-explanation');
-      
-      if (loanType === '전체') {
-        explanationDiv.style.display = 'none';
-        return;
-      }
-      
-      explanationDiv.style.display = 'block';
-      
-      let tableHTML = '';
-      
-      if (loanType === '비상금대출') {
-        tableHTML = `
-          <table class="dataframe loan-table emergency-loan-table" id="loan-info-table">
-            <thead>
-              <tr>
-                <th><div class="highlight-box">소액 비상금</div></th>
-                <th>금융권 비상금대출 상품</th>
-                <th></th>
-                <th>근로자 생활안정자금</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td></td>
-                <td>서울보증보험(주) 보험증권 발급 가능한 자</td>
-                <td><div class="highlight-box">대출 조건</div></td>
-                <td>3개월 이상 재직 근로자,<br>일용근로자 : 90일 이내 45일 이상 근무</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td>일반적으로 300~500만원</td>
-                <td><div class="highlight-box">한도</div></td>
-                <td>용도에 따라 200~2,000만원</td>
-              </tr>
-            </tbody>
-          </table>`;
-      } else if (loanType === '새희망홀씨') {
-        tableHTML = `
-          <table class="dataframe loan-table hope-loan-table" id="loan-info-table">
-            <thead>
-              <tr>
-                <th><div class="highlight-box">새희망홀씨</div></th>
-                <th colspan="2">새희망홀씨 (1금융권)</th>
-                <th></th>
-                <th colspan="2">새희망홀씨 금리우대 항목</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td></td>
-                <td>직장인</td>
-                <td>사업자</td>
-                <td><div class="highlight-box">분류</div></td>
-                <td>연 0.5%P</td>
-                <td>연 0.1%P</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td colspan="2">3,500만원 이하(신용점수 무관),<br>4,500만원 이하(신용평점 하위 20%)</td>
-                <td><div class="highlight-box">연 소득</div></td>
-                <td rowspan="2"><div class="small-left">· 기초생활수급권자<br>· 한부모가정<br>· 다문화가정<br>· 만 60세 이상 부모 부양자<br>· 3자녀 이상 부양자<br>· 장애인</div></td>
-                <td rowspan="2"><div class="small-left">· 청년층(만 29세 이하)<br>· 고령자(만 65세 이상)<br>· 금융교육이수자<br>· 일용직 근로자</div></td>
-              </tr>
-              <tr>
-                <td></td>
-                <td colspan="2">3,000~3,500만원</td>
-                <td><div class="highlight-box">한도</div></td>
-              </tr>
-            </tbody>
-          </table>`;
-      } else if (loanType === '무직자대출') {
-        tableHTML = `
-          <table class="dataframe loan-table unemployed-loan-table" id="loan-info-table">
-            <thead>
-              <tr>
-                <th><div class="highlight-box">무직자 대출</div></th>
-                <th>무직자 대출</th>
-                <th></th>
-                <th>무직자 대출 관련 정보</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td></td>
-                <td>서울보증보험(주) 보험증권 발급 가능한 자,<br>신용 및 사기 이력 없는 자</td>
-                <td><div class="highlight-box">대출 조건</div></td>
-                <td rowspan="2"><div class="small-left">· 대개 '비상금대출'을 통해,<br>&nbsp;&nbsp;무직자도 소액으로 여신 서비스 활용하는 방식<br>· 상환 기간은 대체로 1년이지만, 특별한 사정이 없다면<br>&nbsp;&nbsp;만기 연장이 가능한 경우가 많음<br>· 회생, 파산, 면책 사실 없어야 함</div></td>
-              </tr>
-              <tr>
-                <td></td>
-                <td>50만원~300만원 한도</td>
-                <td><div class="highlight-box">한도</div></td>
-                <td></td>
-              </tr>
-            </tbody>
-          </table>`;
-      } else if (loanType === '사잇돌') {
-        tableHTML = `
-          <table class="dataframe loan-table saitdol-loan-table" id="loan-info-table">
-            <thead>
-              <tr>
-                <th><div class="highlight-box">사잇돌 대출</div></th>
-                <th colspan="2">1금융권 사잇돌대출</th>
-                <th></th>
-                <th colspan="2">저축은행권 사잇돌2대출</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td></td>
-                <td>직장인</td>
-                <td>사업자</td>
-                <td><div class="highlight-box">분류</div></td>
-                <td>직장인</td>
-                <td>사업자</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td>1,500만원 이상</td>
-                <td>1,000만원 이상</td>
-                <td><div class="highlight-box">연 소득</div></td>
-                <td>1,200만원 이상</td>
-                <td>600만원 이상</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td>3개월 이상</td>
-                <td>6개월 이상</td>
-                <td><div class="highlight-box">재직 기간</div></td>
-                <td>5개월 이상</td>
-                <td>4개월 이상</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td colspan="2">100~2,000만원</td>
-                <td><div class="highlight-box">한도</div></td>
-                <td colspan="2">100~3,000만원</td>
-              </tr>
-            </tbody>
-          </table>`;
-      } else if (loanType === '햇살론') {
-        tableHTML = `
-          <table class="dataframe loan-table sunshine-loan-table" id="loan-info-table">
-            <thead>
-              <tr>
-                <th><div class="highlight-box">햇살론</div></th>
-                <th>햇살론15</th>
-                <th></th>
-                <th>햇살론 최저신용자 특례보증</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td></td>
-                <td>3,500만원 이하, 개인신용평점 하위 20%</td>
-                <td><div class="highlight-box">연 소득</div></td>
-                <td>4,500만원 이하, 개인신용평점 하위 10%</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td>일반보증 : 3개월 이상 재직/사업<br>직접보증 : 3개월 미만 재직</td>
-                <td><div class="highlight-box">재직 기간</div></td>
-                <td>3개월 이상 재직/사업</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td>최대 2,000만원</td>
-                <td><div class="highlight-box">한도</div></td>
-                <td>최대 1,000만원</td>
-              </tr>
-            </tbody>
-          </table>`;
-      }
-      
-      explanationDiv.innerHTML = tableHTML;
+    // 최대한도 입력 시 필터 적용
+    function applyMaxLimitFilter(value) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('maxLimit', value);
+      window.location.href = url.toString();
     }
-    window.addEventListener('popstate', function(event) {
-      if (event.state) {
-        currentLoanType = event.state.loanType;
-        currentPage = event.state.page;
-        currentMaxLimit = event.state.maxLimit || '';
-        
-        // 입력 필드 업데이트
-        document.getElementById('maxLimit').value = currentMaxLimit;
-        
-        // 버튼 상태 업데이트
-        document.querySelectorAll('.loan-type-buttons .btn').forEach(btn => {
-          if (btn.textContent.trim() === currentLoanType) {
-            btn.className = 'btn btn-success';
-          } else {
-            btn.className = 'btn btn-outline-success';
-          }
-        });
-        
-        updateLoanTypeExplanation(currentLoanType); // 설명 테이블도 업데이트
-        
-        loadProducts();
+
+    // 페이지네이션 클릭 시 스크롤 위치 저장 및 고정
+    function handlePaginationClick(event) {
+      // 현재 스크롤 위치 저장
+      currentScrollPosition = window.scrollY;
+      sessionStorage.setItem('scrollPosition', currentScrollPosition);
+    }
+
+    // 페이지 로드 후 스크롤 위치 복원
+    function restoreScrollPosition() {
+      const savedPosition = sessionStorage.getItem('scrollPosition');
+      if (savedPosition) {
+        // 약간의 지연을 주어 페이지 렌더링 완료 후 스크롤 이동
+        setTimeout(() => {
+          window.scrollTo({
+            top: parseInt(savedPosition),
+            behavior: 'instant' // 즉시 이동 (애니메이션 없음)
+          });
+        }, 0);
       }
-    });
+    }
 
     // 문서 준비 후 이벤트 바인딩
     $(document).ready(() => {
       const tbody = document.getElementById('product-tbody');
 
-      // 토글 버튼 이벤트 (동적 콘텐츠 대응)
+      // 페이지네이션 링크에 이벤트 리스너 추가
+      document.querySelectorAll('#pagination-container a.page-btn').forEach(link => {
+        link.addEventListener('click', handlePaginationClick);
+      });
+
+      // 페이지 로드 시 스크롤 위치 복원
+      restoreScrollPosition();
+
+      // 토글 버튼 이벤트
       tbody.addEventListener('click', e => {
         const btn = e.target.closest('.btn-toggle');
         if (!btn) return;
@@ -1247,14 +914,11 @@
         const btn = tbody.querySelector(`.btn-toggle[data-bs-target="#${e.target.id}"]`);
         if (btn) btn.textContent = '▼';
       });
+    });
 
-      // 초기 상태 설정
-      updateLoanTypeExplanation(currentLoanType); // 초기 설명 테이블 표시
-      window.history.replaceState({ 
-        loanType: currentLoanType, 
-        page: currentPage, 
-        maxLimit: currentMaxLimit 
-      }, '');
+    // 추가적인 스크롤 위치 복원 (window.onload 이벤트)
+    window.addEventListener('load', function() {
+      restoreScrollPosition();
     });
   </script>
 {% endblock %}
