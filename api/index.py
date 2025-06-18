@@ -21,25 +21,62 @@ HF_API_TOKEN = os.getenv('HF_API_TOKEN')
 HF_API_URL = "https://api-inference.huggingface.co/models/soochang2/fin_chat"
 
 def query_huggingface_api(text, max_length=100):
-    """허깅페이스 Inference API를 사용하여 응답 생성"""
+    """금융 전문 챗봇 응답 시스템"""
     
-    text_lower = text.lower()
+    text_lower = text.lower().strip()
     
-    # 금융 관련 키워드 기반 응답
-    if any(keyword in text_lower for keyword in ['예금', '적금', '금리']):
-        return "예금과 적금 상품은 상단 메뉴에서 비교해보실 수 있어요! 💰"
-    elif any(keyword in text_lower for keyword in ['대출', '햇살론', '새희망홀씨']):
-        return "대출 상품 정보는 대출 메뉴에서 확인하실 수 있습니다. 신중한 대출 이용 부탁드려요! 🏦"
-    elif any(keyword in text_lower for keyword in ['계산기', '비교', '계산']):
-        return "모아플러스 > 한눈에 비교하기 쉬운 상품에서 금리 계산과 상품 비교가 가능해요! 📊"
-    elif any(keyword in text_lower for keyword in ['여행', '저축', '목표']):
-        return "모아플러스 > 당신의 미래를 모으는 시간에서 여행 저축 계획을 세워보세요! ✈️"
-    elif any(keyword in text_lower for keyword in ['안녕', '안녕하세요', 'hi', 'hello']):
-        return "안녕하세요! 저는 모아플러스의 금융 도우미 모니입니다. 금융 상품이나 서비스에 대해 궁금한 점이 있으시면 언제든 물어보세요! 😊"
-    elif any(keyword in text_lower for keyword in ['도움말', '사용법', '어떻게']):
-        return "저는 예금, 적금, 대출 상품 정보와 금융 계산기 사용법을 안내해드릴 수 있어요. 구체적으로 무엇이 궁금하신가요? 🤔"
+    # 인사말
+    if any(keyword in text_lower for keyword in ['안녕', '안녕하세요', 'hi', 'hello', '처음', '시작']):
+        return "안녕하세요! 저는 모아플러스의 금융 도우미 모니입니다! 💰\n\n예금, 적금, 대출 상품 비교부터 금융 계산까지 도와드릴게요. 무엇이 궁금하신가요? 😊"
+    
+    # 예금 관련
+    elif any(keyword in text_lower for keyword in ['예금', '정기예금', '자유예금']):
+        return "💰 예금 상품을 찾고 계시는군요!\n\n• 상단 '예금' 메뉴에서 다양한 예금 상품을 비교할 수 있어요\n• 1금융권과 2금융권 상품을 모두 확인 가능합니다\n• 금리, 은행별, 지역별로 필터링해서 찾아보세요!"
+    
+    # 적금 관련
+    elif any(keyword in text_lower for keyword in ['적금', '정기적금', '자유적금', '저축']):
+        return "📈 적금으로 목돈 만들기를 계획 중이시군요!\n\n• '적금' 메뉴에서 최고 금리 상품들을 확인하세요\n• 저축 기간별로 상품을 비교할 수 있어요\n• 모아플러스 > 여행 저축 계획도 추천드려요! ✈️"
+    
+    # 대출 관련
+    elif any(keyword in text_lower for keyword in ['대출', '햇살론', '새희망홀씨', '사잇돌', '비상금대출', '무직자대출']):
+        return "🏦 대출 상품 정보를 찾고 계시는군요!\n\n• '대출' 메뉴에서 다양한 정부지원 대출을 확인하세요\n• 햇살론, 새희망홀씨, 사잇돌 등 저금리 상품 있어요\n• 대출은 신중하게 결정하시고, 상환 계획도 꼼꼼히 세우세요!"
+    
+    # 금리 및 계산 관련
+    elif any(keyword in text_lower for keyword in ['금리', '이자', '계산', '비교', '계산기']):
+        return "📊 금리 계산과 상품 비교를 도와드릴게요!\n\n• 모아플러스 > '한눈에 비교하기 쉬운 상품'에서 금리 계산기를 이용하세요\n• 두 상품을 직접 비교할 수 있는 기능도 있어요\n• 세전/세후 이자까지 정확하게 계산해드립니다!"
+    
+    # 여행 저축
+    elif any(keyword in text_lower for keyword in ['여행', '해외여행', '휴가', 'trip']):
+        return "✈️ 여행 저축 계획을 세우고 계시는군요!\n\n• 모아플러스 > 'TRIP MOA'에서 여행지별 예상 비용을 확인하세요\n• 목표 금액에 맞는 적금 상품도 추천해드려요\n• 세계 지도에서 여행지를 선택하고 저축 계획을 세워보세요!"
+    
+    # 자동차 구매
+    elif any(keyword in text_lower for keyword in ['자동차', '차', '자동차구매', 'car']):
+        return "🚗 자동차 구매를 계획 중이시군요!\n\n• 모아플러스 > 'CAR MOA'에서 차종별 가격 정보를 확인하세요\n• 목표 금액 달성을 위한 적금 상품도 추천해드려요\n• 현명한 자동차 구매 계획을 세워보세요!"
+    
+    # 집 구매
+    elif any(keyword in text_lower for keyword in ['집', '주택', '아파트', '부동산', '집구매']):
+        return "🏠 내 집 마련을 꿈꾸고 계시는군요!\n\n• 모아플러스 > 'HOUSE MOA'에서 지역별 주택 가격을 확인하세요\n• 주택담보대출 상품 정보도 함께 제공해드려요\n• 단계적인 내 집 마련 계획을 세워보세요!"
+    
+    # 청년 지원
+    elif any(keyword in text_lower for keyword in ['청년', '지원', '혜택', '정책']):
+        return "🌱 청년을 위한 금융 지원 정보를 찾고 계시는군요!\n\n• 모아플러스 > '청년들을 위한 지원 사업'에서 다양한 혜택을 확인하세요\n• 청년 전용 대출, 적금 상품들이 많이 있어요\n• 정부 지원 정책도 함께 확인해보세요!"
+    
+    # 금융 용어
+    elif any(keyword in text_lower for keyword in ['용어', '모르겠', '뜻', '설명', '금융용어']):
+        return "📚 금융 용어가 어려우시죠?\n\n• 모아플러스 > '금융, 이제는 쉽고 재미있게'에서 용어사전을 확인하세요\n• ㄱ부터 ㅎ까지 초성별로 찾을 수 있어요\n• 어려운 금융 용어를 쉽게 설명해드려요!"
+    
+    # 도움말
+    elif any(keyword in text_lower for keyword in ['도움', '사용법', '어떻게', '모르겠어', '도와줘']):
+        return "🤝 모아플러스 사용법을 안내해드릴게요!\n\n• 상단 메뉴: 예금, 적금, 대출 상품 비교\n• 모아플러스: 금융 교육, 계산기, 미래 계획 도구\n• 각 페이지에서 필터링과 정렬로 원하는 상품을 쉽게 찾을 수 있어요!"
+    
+    # 감사 인사
+    elif any(keyword in text_lower for keyword in ['고마워', '감사', 'thank', '도움이 됐어']):
+        return "😊 도움이 되셨다니 정말 기뻐요!\n\n앞으로도 똑똑한 금융 생활을 위해 모아플러스를 활용해주세요. 또 궁금한 점이 있으면 언제든 물어보세요! 💪"
+    
+    # 기본 응답
     else:
-        return f"'{text}'에 대한 정보를 찾고 계시는군요! 상단 메뉴나 모아플러스에서 관련 정보를 확인해보세요. 더 구체적인 질문을 해주시면 더 도움을 드릴 수 있어요! 😄" 
+        return f"🤔 '{text}'에 대해 궁금하시는군요!\n\n저는 이런 것들을 도와드릴 수 있어요:\n• 예금/적금/대출 상품 비교\n• 금리 계산 및 상품 비교\n• 여행/자동차/주택 저축 계획\n• 청년 지원 정책 안내\n• 금융 용어 설명\n\n더 구체적으로 질문해주시면 정확한 정보를 제공해드릴게요! 😄"
+        
     if not HF_API_TOKEN:
         return "허깅페이스 API 토큰이 설정되지 않았습니다."
     
