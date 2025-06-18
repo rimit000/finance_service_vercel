@@ -448,6 +448,7 @@
 	border: 1px solid #ccc;
 	border-radius: 10px;
 	text-align: right;
+	font-family: monospace;
 	}
 
     .compare-button {
@@ -744,7 +745,7 @@
 	<div class="calculation-inputs">
 		<div>
 		<label for="amount" id="amount-label">월 적금액 
-			<input type="number" id="amount" name="amount" value="100000" min="1000" step="1000" required>
+			<input type="text" id="amount" name="amount" value="100,000" min="1000" step="1000" required>
 			&nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;
 		</label>
 		</div>
@@ -878,6 +879,56 @@
 
 <!-- JavaScript 코드 -->
 <script>
+
+// === 숫자 포맷팅 유틸리티 ===
+function formatNumber(num) {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function unformatNumber(str) {
+  return str.replace(/,/g, '');
+}
+
+function handleNumberInput(input) {
+  input.addEventListener('input', function(e) {
+    // 현재 커서 위치 저장
+    let cursorPosition = e.target.selectionStart;
+    let oldLength = e.target.value.length;
+    
+    // 숫자만 추출
+    let value = unformatNumber(e.target.value);
+    
+    // 숫자가 아닌 문자 제거
+    value = value.replace(/[^\d]/g, '');
+    
+    if (value === '') {
+      e.target.value = '';
+      return;
+    }
+    
+    // 포맷팅 적용
+    let formattedValue = formatNumber(value);
+    e.target.value = formattedValue;
+    
+    // 커서 위치 조정
+    let newLength = formattedValue.length;
+    let lengthDiff = newLength - oldLength;
+    cursorPosition += lengthDiff;
+    
+    // 커서 위치 설정
+    e.target.setSelectionRange(cursorPosition, cursorPosition);
+  });
+  
+  // 포커스 아웃 시 최소값 체크
+  input.addEventListener('blur', function(e) {
+    let value = parseInt(unformatNumber(e.target.value)) || 0;
+    let min = parseInt(e.target.getAttribute('min')) || 0;
+    
+    if (value < min) {
+      e.target.value = formatNumber(min);
+    }
+  });
+}
 // === 전역 변수 ===
 const productMap = {{ product_map | tojson }};
 const bankTierMap = {{ bank_tier_map | tojson }};
@@ -973,13 +1024,25 @@ function updateLabels(productType) {
   const monthsLabel = document.getElementById('months-label');
   
   if (productType === 'deposit') {
-    amountLabel.innerHTML = '예금액 <input type="number" id="amount" name="amount" value="1000000" min="10000" step="10000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
+    amountLabel.innerHTML = '예금액 <input type="text" id="amount" name="amount" value="1,000,000" min="10000" step="10000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
     monthsLabel.innerHTML = '예금 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
   } else {
-    amountLabel.innerHTML = '월 적금액 <input type="number" id="amount" name="amount" value="100000" min="1000" step="1000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
+    amountLabel.innerHTML = '월 적금액 <input type="text" id="amount" name="amount" value="100,000" min="1000" step="1000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
     monthsLabel.innerHTML = '납입 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
   }
-}
+  
+// 폼 제출 시 콤마 제거
+document.getElementById('compare-form').addEventListener('submit', function(e) {
+  const amountInput = document.getElementById('amount');
+  const hiddenAmountInput = document.createElement('input');
+  hiddenAmountInput.type = 'hidden';
+  hiddenAmountInput.name = 'amount';
+  hiddenAmountInput.value = unformatNumber(amountInput.value);
+  
+  // 기존 amount input의 name을 변경하고 hidden input 추가
+  amountInput.name = 'amount_display';
+  this.appendChild(hiddenAmountInput);
+});
 
 // 예금/적금 타입 변경
 typeButtons.forEach(btn => {
