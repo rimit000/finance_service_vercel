@@ -739,7 +739,7 @@
               <tr>
                 <td class="text-center">{{ ((current_page|default(1) - 1) * 15) + loop.index }}</td>
                 <td>
-                  <img src="/static/{{ product.logo or 'default-logo.png' }}" class="bank-logo me-2" alt="로고" onerror="this.style.display='none'"/>
+                  <img src="{{ product.logo }}" class="bank-logo me-2" alt="로고"/>
                   {{ product.금융회사명 or '정보 없음' }}
                 </td>
                 <td>{{ product.상품명 or '정보 없음' }}</td>
