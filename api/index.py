@@ -44,23 +44,25 @@ def query_huggingface_api(text, max_length=100):
     try:
         response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=30)
         
+        # 디버깅: 상태 코드와 응답 내용 확인
         if response.status_code == 200:
             result = response.json()
             if isinstance(result, list) and len(result) > 0:
                 return result[0].get('generated_text', '응답을 생성할 수 없습니다.')
             else:
-                return str(result)
+                return f"API 응답: {str(result)}"
         elif response.status_code == 503:
             return "모델이 로딩 중입니다. 잠시 후 다시 시도해주세요."
         else:
-            return f"죄송합니다. 현재 서비스에 일시적인 문제가 있습니다."
+            # 디버깅: 정확한 오류 상태 반환
+            return f"API 오류 {response.status_code}: {response.text[:200]}"
             
     except requests.exceptions.Timeout:
         return "요청 시간이 초과되었습니다. 다시 시도해주세요."
     except requests.exceptions.RequestException as e:
-        return "네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요."
+        return f"네트워크 오류: {str(e)[:100]}"
     except Exception as e:
-        return "죄송합니다. 예상치 못한 오류가 발생했습니다."
+        return f"예상치 못한 오류: {str(e)[:100]}"
 
 # ============================================
 # CSV 처리 클래스 (pandas 대체)
