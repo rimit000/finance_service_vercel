@@ -744,7 +744,8 @@
 	<div class="calculation-section">
 	<div class="calculation-inputs">
 		<div>
-		<label for="amount" id="amount-label">월 적금액 
+		<label for="amount">
+			<span id="amount-label-text">월 적금액</span>
 			<input type="text" id="amount" name="amount" value="100,000" min="1000" step="1000" required>
 			&nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;
 		</label>
@@ -1018,7 +1019,6 @@ function renderProductListByBank(wrapper, bankName) {
 
 // === 이벤트 리스너 ===
 
-// 라벨 업데이트 함수
 function updateLabels(productType) {
   const amountLabel = document.getElementById('amount-label');
   const monthsLabel = document.getElementById('months-label');
@@ -1031,18 +1031,10 @@ function updateLabels(productType) {
     monthsLabel.innerHTML = '납입 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
   }
   
-// 폼 제출 시 콤마 제거
-document.getElementById('compare-form').addEventListener('submit', function(e) {
+  // 새로 생성된 input에 이벤트 리스너 추가
   const amountInput = document.getElementById('amount');
-  const hiddenAmountInput = document.createElement('input');
-  hiddenAmountInput.type = 'hidden';
-  hiddenAmountInput.name = 'amount';
-  hiddenAmountInput.value = unformatNumber(amountInput.value);
-  
-  // 기존 amount input의 name을 변경하고 hidden input 추가
-  amountInput.name = 'amount_display';
-  this.appendChild(hiddenAmountInput);
-});
+  handleNumberInput(amountInput);
+}
 
 // 예금/적금 타입 변경
 typeButtons.forEach(btn => {
