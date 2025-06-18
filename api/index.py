@@ -8,8 +8,58 @@ from flask import make_response
 import csv
 import json
 from collections import defaultdict
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
+
+# 허깅페이스 API 설정
+HF_API_TOKEN = os.getenv('HF_API_TOKEN')
+HF_API_URL = "https://api-inference.huggingface.co/models/soochang2/fin_chat"
+
+def query_huggingface_api(text, max_length=100):
+    """허깅페이스 Inference API를 사용하여 응답 생성"""
+    
+    if not HF_API_TOKEN:
+        return "허깅페이스 API 토큰이 설정되지 않았습니다."
+    
+    headers = {
+        "Authorization": f"Bearer {HF_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "inputs": text,
+        "parameters": {
+            "max_new_tokens": max_length,
+            "temperature": 0.7,
+            "do_sample": True,
+            "return_full_text": False
+        }
+    }
+    
+    try:
+        response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                return result[0].get('generated_text', '응답을 생성할 수 없습니다.')
+            else:
+                return str(result)
+        elif response.status_code == 503:
+            return "모델이 로딩 중입니다. 잠시 후 다시 시도해주세요."
+        else:
+            return f"API 오류: {response.status_code} - {response.text}"
+            
+    except requests.exceptions.Timeout:
+        return "요청 시간이 초과되었습니다. 다시 시도해주세요."
+    except requests.exceptions.RequestException as e:
+        return f"네트워크 오류: {str(e)}"
+    except Exception as e:
+        return f"예상치 못한 오류: {str(e)}"
 
 # ============================================
 # CSV 처리 클래스 (pandas 대체)
@@ -2404,3 +2454,33 @@ def debug_csv():
         
     except Exception as e:
         return jsonify({'error': str(e)})
+
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """채팅 API 엔드포인트"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '')
+        
+        if not user_message:
+            return jsonify({'error': '메시지가 비어있습니다.'}), 400
+        
+        # 허깅페이스 API를 통해 응답 생성
+        bot_response = query_huggingface_api(user_message)
+        
+        return jsonify({
+            'response': bot_response,
+            'status': 'success'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/health')
+def health_check():
+    """헬스 체크 엔드포인트"""
+    return jsonify({
+        'status': 'healthy',
+        'api_status': 'connected' if HF_API_TOKEN else 'no_token'
+    })
