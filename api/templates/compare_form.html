@@ -973,7 +973,7 @@ function updateLabels(productType) {
   const monthsLabel = document.getElementById('months-label');
   
   if (productType === 'deposit') {
-    amountLabel.innerHTML = '예금액 <input type="number" id="amount" name="amount" value="1000000" min="10000" step="10000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
+    amountLabel.innerHTML = '총 예금액 <input type="number" id="amount" name="amount" value="1000000" min="10000" step="10000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
     monthsLabel.innerHTML = '예금 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
   } else {
     amountLabel.innerHTML = '월 적금액 <input type="number" id="amount" name="amount" value="100000" min="1000" step="1000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
