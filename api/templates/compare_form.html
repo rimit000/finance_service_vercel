@@ -743,13 +743,13 @@
 	<div class="calculation-section">
 	<div class="calculation-inputs">
 		<div>
-		<label for="amount">월 적금액 
+		<label for="amount" id="amount-label">월 적금액 
 			<input type="number" id="amount" name="amount" value="100000" min="1000" step="1000" required>
 			&nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;
 		</label>
 		</div>
 		<div>
-		<label for="months">납입 기간 
+		<label for="months" id="months-label">납입 기간 
 			<input type="number" id="months" name="months" value="12" min="1" max="120" required>
 			개월
 		</label>
@@ -967,6 +967,20 @@ function renderProductListByBank(wrapper, bankName) {
 
 // === 이벤트 리스너 ===
 
+// 라벨 업데이트 함수
+function updateLabels(productType) {
+  const amountLabel = document.getElementById('amount-label');
+  const monthsLabel = document.getElementById('months-label');
+  
+  if (productType === 'deposit') {
+    amountLabel.innerHTML = '예금액 <input type="number" id="amount" name="amount" value="1000000" min="10000" step="10000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
+    monthsLabel.innerHTML = '예금 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
+  } else {
+    amountLabel.innerHTML = '월 적금액 <input type="number" id="amount" name="amount" value="100000" min="1000" step="1000" required> &nbsp;&nbsp;원&nbsp;&nbsp;&nbsp;';
+    monthsLabel.innerHTML = '납입 기간 <input type="number" id="months" name="months" value="12" min="1" max="120" required> 개월';
+  }
+}
+
 // 예금/적금 타입 변경
 typeButtons.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -974,6 +988,9 @@ typeButtons.forEach(btn => {
     btn.classList.add('active');
     productTypeInput.value = btn.dataset.type;
 
+    // 라벨 업데이트
+    updateLabels(btn.dataset.type);
+    
     // 모든 폼 초기화
     initializeAllForms();
   });
@@ -1073,6 +1090,8 @@ function initializeAllForms() {
 
 // 페이지 로드 시 초기 설정
 document.addEventListener('DOMContentLoaded', () => {
+  const currentType = document.querySelector('#type-toggle .btn-type.active').dataset.type;
+  updateLabels(currentType);
   initializeAllForms();
 });
 
