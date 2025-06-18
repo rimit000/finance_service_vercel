@@ -417,12 +417,15 @@
   border-radius: 18px;
   font-size: 14px;
   line-height: 1.4;
+  word-wrap: break-word; /* 긴 단어 줄바꿈 */
+  white-space: pre-wrap; /* 줄바꿈 유지 */
 }
 
 .message.bot .message-bubble {
   background: white;
   border: 1px solid #e0e0e0;
   border-bottom-left-radius: 4px;
+  color: #333;
 }
 
 .message.user .message-bubble {
@@ -431,6 +434,11 @@
   border-bottom-right-radius: 4px;
 }
 
+/* 메시지 간격 조정 */
+.message + .message {
+  margin-top: 8px;
+}
+    
 #chatbot-input-area {
   padding: 16px 20px;
   background: white;
@@ -684,29 +692,18 @@ function toggleChatbot() {
   }
 }
 
-async function sendChat() {
-  const input = document.getElementById("chatbot-input");
-  const message = input.value.trim();
-  if (!message) return;
-
+function toggleChatbot() {
+  const box = document.getElementById("chatbot-box");
   const messages = document.getElementById("chatbot-messages");
-  
-  // 사용자 메시지 추가
-  messages.innerHTML += `<div class="message user"><div class="message-bubble">${message}</div></div>`;
-  input.value = "";
 
-  // API 호출
-  const res = await fetch("/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: message })
-  });
-
-  const data = await res.json();
-  
-  // 봇 응답 추가
-  messages.innerHTML += `<div class="message bot"><div class="message-bubble">${data.response}</div></div>`;
-  messages.scrollTop = messages.scrollHeight;
+  if (box.classList.contains("open")) {
+    box.classList.remove("open");
+    messages.innerHTML = "";  
+  } else {
+    box.classList.add("open");
+    // 초기 메시지도 말풍선 형태로
+    messages.innerHTML = `<div class="message bot"><div class="message-bubble">안녕하세요! 저는 모아플러스의 금융 도우미 모니입니다. 무엇을 도와드릴까요? 😊</div></div>`; 
+  }
 }
 
 async function sendChat() {
@@ -715,20 +712,47 @@ async function sendChat() {
   if (!message) return;
 
   const messages = document.getElementById("chatbot-messages");
-  messages.innerHTML += `<div><strong>🙋‍♂️</strong> ${message}</div>`;
+  
+  // 사용자 메시지를 말풍선으로 추가
+  const userMessageDiv = document.createElement('div');
+  userMessageDiv.className = 'message user';
+  userMessageDiv.innerHTML = `<div class="message-bubble">${message}</div>`;
+  messages.appendChild(userMessageDiv);
+  
   input.value = "";
-
-  const res = await fetch("/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: message })
-  });
-
-  const data = await res.json();
-  messages.innerHTML += `<div><strong>🤖</strong> ${data.response}</div>`;
   messages.scrollTop = messages.scrollHeight;
-}
 
+  try {
+    // API 호출
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message })
+    });
+
+    const data = await res.json();
+    
+    // 봇 응답을 말풍선으로 추가
+    const botMessageDiv = document.createElement('div');
+    botMessageDiv.className = 'message bot';
+    
+    // 줄바꿈을 <br>로 변환
+    const formattedResponse = data.response.replace(/\n/g, '<br>');
+    botMessageDiv.innerHTML = `<div class="message-bubble">${formattedResponse}</div>`;
+    messages.appendChild(botMessageDiv);
+    
+    messages.scrollTop = messages.scrollHeight;
+    
+  } catch (error) {
+    // 에러 발생 시 에러 메시지도 말풍선으로
+    const errorMessageDiv = document.createElement('div');
+    errorMessageDiv.className = 'message bot';
+    errorMessageDiv.innerHTML = `<div class="message-bubble">죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.</div>`;
+    messages.appendChild(errorMessageDiv);
+    
+    messages.scrollTop = messages.scrollHeight;
+  }
+}
 </script>
 
 </body>
