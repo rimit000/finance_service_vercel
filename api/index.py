@@ -53,14 +53,14 @@ def query_huggingface_api(text, max_length=100):
         elif response.status_code == 503:
             return "모델이 로딩 중입니다. 잠시 후 다시 시도해주세요."
         else:
-            return f"API 오류: {response.status_code} - {response.text}"
+            return f"죄송합니다. 현재 서비스에 일시적인 문제가 있습니다."
             
     except requests.exceptions.Timeout:
         return "요청 시간이 초과되었습니다. 다시 시도해주세요."
     except requests.exceptions.RequestException as e:
-        return f"네트워크 오류: {str(e)}"
+        return "네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요."
     except Exception as e:
-        return f"예상치 못한 오류: {str(e)}"
+        return "죄송합니다. 예상치 못한 오류가 발생했습니다."
 
 # ============================================
 # CSV 처리 클래스 (pandas 대체)
@@ -2467,14 +2467,16 @@ def chat():
         if not user_message:
             return jsonify({'error': '메시지가 비어있습니다.'}), 400
         
-        # 디버깅: 일단 간단한 응답 반환
+        # 허깅페이스 API를 통해 응답 생성
+        bot_response = query_huggingface_api(user_message)
+        
         return jsonify({
-            'response': f"메시지를 받았습니다: {user_message}",
+            'response': bot_response,
             'status': 'success'
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': '죄송합니다. 일시적인 오류가 발생했습니다.'}), 500
 
 @app.route('/health')
 def health_check():
