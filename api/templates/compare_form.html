@@ -1193,13 +1193,17 @@ document.getElementById('compare-form').addEventListener('submit', async functio
     submitBtn.disabled = true;
     
     // AJAX 요청
+    console.log('AJAX 요청 시작');
     const response = await fetch(window.location.href, {
       method: 'POST',
       body: formData,
       headers: {
-        'X-Requested-With': 'XMLHttpRequest' // AJAX 요청임을 서버에 알림
+        'X-Requested-With': 'XMLHttpRequest'
       }
     });
+
+    console.log('응답 상태:', response.status);
+    console.log('응답 OK:', response.ok);
     
     if (response.ok) {
       const html = await response.text();
