@@ -790,24 +790,35 @@ def loans_page():
     )
 
 
-# 동림 버전의 API 엔드포인트
+# /api/loans API 엔드포인트
 @app.route('/api/loans')
 def api_loans():
     try:
         loan_type = request.args.get('loanType', '전체')
-        amount    = request.args.get('amount', type=int, default=1000000)
-
-        if loan_data.empty:
-            return jsonify(products=[])
-
-        df = loan_data
+        amount = request.args.get('amount', type=int, default=1000000)
+        page = request.args.get('page', type=int, default=1)
+        max_limit = request.args.get('maxLimit', '')
         
+        if loan_data.empty:
+            return jsonify(products=[], total_pages=1, current_page=1)
+        
+        df = loan_data
         filtered_data = df.data.copy()
         
+        # 대출 유형 필터링
         if loan_type != '전체':
             filtered_data = [row for row in filtered_data if row.get('대출유형') == loan_type]
-
-        # (금액이 있으면 계산금액 컬럼 추가)
+        
+        # 최대한도 필터링
+        if max_limit:
+            try:
+                max_limit_int = int(max_limit) * 10000  # 만원 단위를 원 단위로 변환
+                filtered_data = [row for row in filtered_data 
+                               if extract_max_limit(row.get('대출한도', '')) >= max_limit_int]
+            except ValueError:
+                pass  # 잘못된 입력은 무시
+        
+        # 금액 계산 (기존 로직 유지)
         if amount:
             for row in filtered_data:
                 try:
@@ -815,12 +826,63 @@ def api_loans():
                     row['계산금액'] = int(amount * (1 + rate))
                 except:
                     row['계산금액'] = amount
-
-        # 필요하면 정렬·페이지네이션도 여기서 처리
-        return jsonify(products=filtered_data)
+        
+        # 페이지네이션
+        items_per_page = 15
+        total_items = len(filtered_data)
+        total_pages = (total_items + items_per_page - 1) // items_per_page
+        
+        start_idx = (page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        page_data = filtered_data[start_idx:end_idx]
+        
+        return jsonify({
+            'products': page_data,
+            'total_pages': total_pages,
+            'current_page': page,
+            'total_items': total_items
+        })
+        
     except Exception as e:
         print(f"대출 API 오류: {e}")
-        return jsonify(products=[])
+        return jsonify(products=[], total_pages=1, current_page=1)
+
+def extract_max_limit(limit_str):
+    """대출한도 문자열에서 최대 금액을 추출하는 함수"""
+    if not limit_str:
+        return 0
+    
+    try:
+        # "최대 3,000만원" 같은 형태에서 숫자 추출
+        import re
+        
+        # 억 단위 처리
+        if '억' in limit_str:
+            numbers = re.findall(r'(\d+(?:,\d+)*)\s*억', limit_str)
+            if numbers:
+                return int(numbers[-1].replace(',', '')) * 100000000
+        
+        # 만원 단위 처리
+        if '만원' in limit_str:
+            numbers = re.findall(r'(\d+(?:,\d+)*)\s*만원', limit_str)
+            if numbers:
+                return int(numbers[-1].replace(',', '')) * 10000
+        
+        # 원 단위 처리
+        if '원' in limit_str:
+            numbers = re.findall(r'(\d+(?:,\d+)*)\s*원', limit_str)
+            if numbers:
+                return int(numbers[-1].replace(',', ''))
+        
+        # 숫자만 있는 경우
+        numbers = re.findall(r'(\d+(?:,\d+)*)', limit_str)
+        if numbers:
+            return int(numbers[-1].replace(',', ''))
+            
+    except:
+        pass
+    
+    return 0
 
 # 금융용어사전 로드 및 초성 기준
 try:
