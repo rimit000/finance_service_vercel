@@ -1275,10 +1275,31 @@ def get_csv_path(filename):
 
 def load_csv_safely(filename):
     """안전하게 CSV 파일을 로드하는 함수"""
-    csv_path = get_csv_path(filename)
-    if csv_path is None:
-        print(f"❌ {filename} 파일을 찾을 수 없습니다.")
-        return pd.DataFrame()
+    # 상위 디렉토리에서 직접 찾기 (디버그 결과 기반)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    csv_path = os.path.join(parent_dir, filename)
+    
+    if not os.path.exists(csv_path):
+        print(f"❌ {filename} 파일을 찾을 수 없습니다: {csv_path}")
+        
+        # 상위 디렉토리의 실제 파일 목록 확인
+        try:
+            files = os.listdir(parent_dir)
+            csv_files = [f for f in files if f.endswith('.csv')]
+            print(f"실제 CSV 파일들: {csv_files}")
+            
+            # 파일명 매칭 시도
+            for file in csv_files:
+                if filename in file or file.encode('utf-8').decode('utf-8') == filename:
+                    csv_path = os.path.join(parent_dir, file)
+                    print(f"매칭된 파일: {file}")
+                    break
+        except Exception as e:
+            print(f"디렉토리 조회 실패: {e}")
+        
+        if not os.path.exists(csv_path):
+            return pd.DataFrame()
     
     try:
         df = pd.read_csv(csv_path, encoding='utf-8-sig')
@@ -2359,22 +2380,42 @@ def debug_csv():
         
         def list_files(directory):
             try:
-                return [f for f in os.listdir(directory) if f.endswith('.csv')]
-            except:
-                return []
+                files = os.listdir(directory)
+                return {
+                    'csv_files': [f for f in files if f.endswith('.csv')],
+                    'all_files': files[:10]  # 처음 10개만
+                }
+            except Exception as e:
+                return {'error': str(e)}
+        
+        # 주택 관련 파일 직접 체크
+        house_price_path = os.path.join(parent_dir, '주택_시도별_보증금.csv')
+        house_loan_path = os.path.join(parent_dir, '주택담보대출_정리본.csv')
         
         result = {
             'current_dir': current_dir,
             'parent_dir': parent_dir,
-            'current_dir_csv_files': list_files(current_dir),
-            'parent_dir_csv_files': list_files(parent_dir),
+            'parent_dir_files': list_files(parent_dir),
+            'house_price_file_exists': os.path.exists(house_price_path),
+            'house_loan_file_exists': os.path.exists(house_loan_path),
+            'house_price_path': house_price_path,
+            'house_loan_path': house_loan_path,
             'house_df_empty': house_df.empty if 'house_df' in globals() else 'not_defined',
             'house_loan_df_empty': house_loan_df.empty if 'house_loan_df' in globals() else 'not_defined'
         }
         
-        if 'house_df' in globals() and not house_df.empty and house_df.data:
-            result['house_sample'] = house_df.data[:2]
-            
+        # 직접 파일 읽기 테스트
+        try:
+            if os.path.exists(house_price_path):
+                test_df = pd.read_csv(house_price_path, encoding='utf-8-sig')
+                result['direct_read_test'] = {
+                    'success': True,
+                    'rows': len(test_df.data) if hasattr(test_df, 'data') else 0,
+                    'columns': test_df.columns if hasattr(test_df, 'columns') else []
+                }
+        except Exception as e:
+            result['direct_read_test'] = {'success': False, 'error': str(e)}
+        
         return jsonify(result)
         
     except Exception as e:
