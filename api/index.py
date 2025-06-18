@@ -15,20 +15,20 @@ app = Flask(__name__)
 # CSV 처리 클래스 (pandas 대체)
 # ============================================
 class DataFrameReplacement:
-    def __init__(self, filename=None, data=None):
+    def __init__(self, filename=None, data=None, encoding='utf-8-sig'):
         self.data = []
         self.columns = []
         
         if filename:
-            self._load_from_file(filename)
+            self._load_from_file(filename, encoding)
         elif data:
             self.data = data
             if data:
                 self.columns = list(data[0].keys())
     
-    def _load_from_file(self, filename):
+    def _load_from_file(self, filename, encoding='utf-8-sig'):
         try:
-            with open(filename, 'r', encoding='utf-8') as file:
+            with open(filename, 'r', encoding=encoding) as file:
                 reader = csv.DictReader(file)
                 self.columns = reader.fieldnames or []
                 self.data = list(reader)
@@ -252,8 +252,8 @@ class GroupByResult:
                 result[key] = 0
         return result
 
-def pd_read_csv(filename):
-    return DataFrameReplacement(filename=filename)
+def pd_read_csv(filename, encoding='utf-8-sig'):
+    return DataFrameReplacement(filename=filename, encoding=encoding)
 
 def pd_read_excel(filename):
     # Excel 파일을 CSV로 변환했다고 가정하거나 오류 처리
@@ -1275,31 +1275,13 @@ def get_csv_path(filename):
 
 def load_csv_safely(filename):
     """안전하게 CSV 파일을 로드하는 함수"""
-    # 상위 디렉토리에서 직접 찾기 (디버그 결과 기반)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)
     csv_path = os.path.join(parent_dir, filename)
     
     if not os.path.exists(csv_path):
         print(f"❌ {filename} 파일을 찾을 수 없습니다: {csv_path}")
-        
-        # 상위 디렉토리의 실제 파일 목록 확인
-        try:
-            files = os.listdir(parent_dir)
-            csv_files = [f for f in files if f.endswith('.csv')]
-            print(f"실제 CSV 파일들: {csv_files}")
-            
-            # 파일명 매칭 시도
-            for file in csv_files:
-                if filename in file or file.encode('utf-8').decode('utf-8') == filename:
-                    csv_path = os.path.join(parent_dir, file)
-                    print(f"매칭된 파일: {file}")
-                    break
-        except Exception as e:
-            print(f"디렉토리 조회 실패: {e}")
-        
-        if not os.path.exists(csv_path):
-            return pd.DataFrame()
+        return pd.DataFrame()
     
     try:
         df = pd.read_csv(csv_path, encoding='utf-8-sig')
